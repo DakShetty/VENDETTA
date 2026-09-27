@@ -1,0 +1,4 @@
+repository "Vendetta/Vendetta@13469943865471@cloud"
+  path "/"
+    br "/main"
+    co "/main"
