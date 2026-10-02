@@ -17,7 +17,9 @@ public class GameManager : MonoBehaviour
 
     public int enemiesDefeated = 0;
     public int killsForUpgrade = 5;
+    public int lightCollected = 0;
 
+    
     void Awake()
     {
         if (Instance == null)
@@ -32,6 +34,8 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        Time.timeScale = 1f;
+
         currentState = GameState.Playing;
 
         GameEvents.OnEnemyDefeated += EnemyDefeated;
@@ -51,6 +55,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public void CollectLight(int amount)
+    {
+        lightCollected += amount;
+
+        Debug.Log("Total Light: " + lightCollected);
+    }
     void StartUpgrade()
     {
         currentState = GameState.Upgrade;
@@ -60,6 +70,7 @@ public class GameManager : MonoBehaviour
     void PlayerDied()
     {
         currentState = GameState.GameOver;
+        Time.timeScale = 0f;
         Debug.Log("Game Over");
     }
 
@@ -69,10 +80,18 @@ public class GameManager : MonoBehaviour
         Debug.Log("Victory!");
     }
 
+    public bool IsGameOver()
+    {
+        return currentState == GameState.GameOver;
+    }
+
     void OnDestroy()
     {
         GameEvents.OnEnemyDefeated -= EnemyDefeated;
         GameEvents.OnPlayerDied -= PlayerDied;
         GameEvents.OnBossDefeated -= BossDefeated;
     }
+
+ 
+    
 }

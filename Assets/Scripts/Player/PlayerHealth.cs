@@ -5,6 +5,10 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     public float maxHealth = 100f;
     public float currentHealth;
 
+    public GameObject deathCanvas;
+
+    private bool dead;
+
     void Start()
     {
         currentHealth = maxHealth;
@@ -12,7 +16,12 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     public void TakeDamage(float damage)
     {
+        if (dead)
+            return;
+
         currentHealth -= damage;
+
+        Debug.Log("Player Health: " + currentHealth);
 
         if (currentHealth <= 0)
         {
@@ -23,15 +32,23 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     void Die()
     {
-        Debug.Log("Player Died");
-        GameEvents.OnPlayerDied?.Invoke();
-    }
+        dead = true;
 
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.K))
-        {
-            TakeDamage(100);
-        }
+        Debug.Log("Player Died");
+
+        PlayerMovement movement = GetComponent<PlayerMovement>();
+
+        if (movement != null)
+            movement.enabled = false;
+
+        CharacterController controller = GetComponent<CharacterController>();
+
+        if (controller != null)
+            controller.enabled = false;
+
+        if (deathCanvas != null)
+            deathCanvas.SetActive(true);
+
+        GameEvents.OnPlayerDied?.Invoke();
     }
 }
