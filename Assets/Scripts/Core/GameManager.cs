@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
@@ -19,7 +19,6 @@ public class GameManager : MonoBehaviour
     public int killsForUpgrade = 5;
     public int lightCollected = 0;
 
-    
     void Awake()
     {
         if (Instance == null)
@@ -46,22 +45,20 @@ public class GameManager : MonoBehaviour
     void EnemyDefeated()
     {
         enemiesDefeated++;
-
         Debug.Log("Enemies Defeated: " + enemiesDefeated);
 
-        if (enemiesDefeated >= killsForUpgrade)
-        {
-            StartUpgrade();
-        }
+        // NOTE: Upgrades must strictly trigger ONLY when the player collects all 5 light remains,
+        // as per GDD ("Defeat 5 consecutive enemies then collect the remains, upgrade to a rune").
+        // UpgradeManager.AddLight() handles StartUpgrade when currentLight >= requiredLight.
     }
 
     public void CollectLight(int amount)
     {
         lightCollected += amount;
-
         Debug.Log("Total Light: " + lightCollected);
     }
-    void StartUpgrade()
+
+    public void StartUpgrade()
     {
         currentState = GameState.Upgrade;
         Debug.Log("Upgrade Phase Started");
@@ -91,7 +88,4 @@ public class GameManager : MonoBehaviour
         GameEvents.OnPlayerDied -= PlayerDied;
         GameEvents.OnBossDefeated -= BossDefeated;
     }
-
- 
-    
 }

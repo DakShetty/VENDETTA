@@ -1,27 +1,32 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class UpgradeManager : MonoBehaviour
 {
     public int requiredLight = 5;
-    private int currentLight;
+    private int currentLight = 0;
 
     public GameObject upgradeCanvas;
 
     public void AddLight(int amount)
     {
         currentLight += amount;
+        Debug.Log("Upgrade Progress: " + currentLight + " / " + requiredLight);
 
+        // Strictly trigger upgrade ONLY when all 5 light charges are absorbed (never at 4)
         if (currentLight >= requiredLight)
         {
             StartUpgrade();
         }
     }
 
-    void StartUpgrade()
+    public void StartUpgrade()
     {
-        Debug.Log("UPGRADE AVAILABLE!");
+        Debug.Log("5 RUNES COLLECTED - RUNE UPGRADE AVAILABLE!");
 
-        GameManager.Instance.currentState = GameManager.GameState.Upgrade;
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.currentState = GameManager.GameState.Upgrade;
+        }
 
         if (upgradeCanvas != null)
         {
@@ -40,10 +45,11 @@ public class UpgradeManager : MonoBehaviour
 
         if (player != null)
         {
-            player.speed += 1f;
-            Debug.Log("Speed Rune Selected!");
+            player.speed += 1.5f;
+            Debug.Log("Speed Rune Selected! New Speed: " + player.speed);
         }
 
+        VendettaAudioManager.Instance?.PlayPickupChime();
         FinishUpgrade();
     }
 
@@ -54,13 +60,14 @@ public class UpgradeManager : MonoBehaviour
         if (combat != null)
         {
             combat.attackDamage += 10f;
-            Debug.Log("Damage Rune Selected!");
+            Debug.Log("Damage Rune Selected! New Attack Damage: " + combat.attackDamage);
         }
 
+        VendettaAudioManager.Instance?.PlayPickupChime();
         FinishUpgrade();
     }
 
-    void FinishUpgrade()
+    public void FinishUpgrade()
     {
         if (upgradeCanvas != null)
         {
@@ -70,6 +77,9 @@ public class UpgradeManager : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        GameManager.Instance.currentState = GameManager.GameState.Playing;
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.currentState = GameManager.GameState.Playing;
+        }
     }
 }

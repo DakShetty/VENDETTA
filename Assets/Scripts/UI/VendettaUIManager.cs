@@ -1,9 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 
 public class VendettaUIManager : MonoBehaviour
 {
@@ -18,7 +15,7 @@ public class VendettaUIManager : MonoBehaviour
     public GameObject bossBarContainer;
     public Text soulCounterText;
 
-    [Header("Rune Ascension Modal (High Quality UI)")]
+    [Header("Rune Modal Reference")]
     public GameObject runeModalPanel;
     public Sprite cardFrameSprite;
     public Sprite speedRuneSprite;
@@ -32,8 +29,6 @@ public class VendettaUIManager : MonoBehaviour
     private BossHealth bossHealth;
     private UpgradeManager upgradeManager;
 
-    private bool showDebugSoundboard = false;
-
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -42,8 +37,6 @@ public class VendettaUIManager : MonoBehaviour
             return;
         }
         Instance = this;
-
-        LoadSpritesIfNeeded();
     }
 
     private void Start()
@@ -55,17 +48,11 @@ public class VendettaUIManager : MonoBehaviour
 
         GameEvents.OnBossDefeated += ShowVictoryScreen;
 
-        BuildHUDAndRuneModalIfMissing();
+        BuildHUDIfMissing();
 
         if (bossBarContainer != null) bossBarContainer.SetActive(false);
-        if (runeModalPanel != null) runeModalPanel.SetActive(false);
         if (victoryBannerPanel != null) victoryBannerPanel.SetActive(false);
-
-        // Hide teammate's old placeholder upgradeCanvas so only our HD modal displays
-        if (upgradeManager != null && upgradeManager.upgradeCanvas != null)
-        {
-            upgradeManager.upgradeCanvas.SetActive(false);
-        }
+        if (runeModalPanel != null) runeModalPanel.SetActive(false);
     }
 
     private void OnDestroy()
@@ -75,13 +62,12 @@ public class VendettaUIManager : MonoBehaviour
 
     private void Update()
     {
-        // Keep references alive
         if (playerHealth == null) playerHealth = FindFirstObjectByType<PlayerHealth>();
         if (playerLight == null) playerLight = FindFirstObjectByType<PlayerLight>();
         if (upgradeManager == null) upgradeManager = FindFirstObjectByType<UpgradeManager>();
         if (bossHealth == null) bossHealth = FindFirstObjectByType<BossHealth>();
 
-        // Update player health bar (both fillAmount and anchorMax for 100% reliability)
+        // Update player health bar
         if (playerHealth != null && vitalityFill != null && playerHealth.maxHealth > 0)
         {
             float hpPct = Mathf.Clamp01(playerHealth.currentHealth / playerHealth.maxHealth);
@@ -102,16 +88,7 @@ public class VendettaUIManager : MonoBehaviour
             soulCounterText.text = "LIGHT SOULS: " + souls + " / " + req;
         }
 
-        // Check if Upgrade phase was triggered
-        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Upgrade)
-        {
-            if (runeModalPanel != null && !runeModalPanel.activeSelf)
-            {
-                OpenRuneModal();
-            }
-        }
-
-        // Update boss health bar if boss is active
+        // Update boss health bar if active
         if (bossBarContainer != null && bossBarContainer.activeSelf && bossHealth != null && bossHealth.maxHealth > 0)
         {
             float bossPct = Mathf.Clamp01(bossHealth.currentHealth / bossHealth.maxHealth);
@@ -121,12 +98,6 @@ public class VendettaUIManager : MonoBehaviour
                 bossHealthFill.fillAmount = bossPct;
             }
         }
-
-        // Hotkeys for testing
-        if (Input.GetKeyDown(KeyCode.R)) ToggleRuneModal();
-        if (Input.GetKeyDown(KeyCode.K)) { if (playerLight != null) playerLight.AbsorbLight(1); }
-        if (Input.GetKeyDown(KeyCode.B)) ToggleBossBar();
-        if (Input.GetKeyDown(KeyCode.F1)) showDebugSoundboard = !showDebugSoundboard;
     }
 
     public void TriggerDamageFlash()
@@ -164,110 +135,16 @@ public class VendettaUIManager : MonoBehaviour
         Cursor.visible = true;
     }
 
-    private void LoadSpritesIfNeeded()
-    {
-#if UNITY_EDITOR
-        if (cardFrameSprite == null)
-            cardFrameSprite = LoadSprite("Assets/UI/T_Card_Frame_HD.png", "Assets/Vendetta/UI/T_Card_Frame_HD.png");
-        if (speedRuneSprite == null)
-            speedRuneSprite = LoadSprite("Assets/UI/T_Rune_Speed_HD.png", "Assets/Vendetta/UI/T_Rune_Speed_HD.png");
-        if (damageRuneSprite == null)
-            damageRuneSprite = LoadSprite("Assets/UI/T_Rune_Damage_HD.png", "Assets/Vendetta/UI/T_Rune_Damage_HD.png");
-#endif
-    }
-
-#if UNITY_EDITOR
-    private static Sprite LoadSprite(params string[] paths)
-    {
-        foreach (var p in paths)
-        {
-            var s = AssetDatabase.LoadAssetAtPath<Sprite>(p);
-            if (s != null) return s;
-        }
-        return null;
-    }
-#endif
-
-    public void OpenRuneModal()
-    {
-        if (runeModalPanel != null)
-        {
-            runeModalPanel.SetActive(true);
-            Time.timeScale = 0f;
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
-    }
-
-    public void CloseRuneModal()
-    {
-        if (runeModalPanel != null)
-        {
-            runeModalPanel.SetActive(false);
-            Time.timeScale = 1f;
-        }
-        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Upgrade)
-        {
-            GameManager.Instance.currentState = GameManager.GameState.Playing;
-        }
-    }
-
-    public void ToggleRuneModal()
-    {
-        if (runeModalPanel != null)
-        {
-            if (runeModalPanel.activeSelf) CloseRuneModal();
-            else OpenRuneModal();
-        }
-    }
-
-    public void SelectSpeedRune()
-    {
-        if (upgradeManager != null) upgradeManager.ChooseSpeedRune();
-        else
-        {
-            var move = FindFirstObjectByType<PlayerMovement>();
-            if (move != null) move.speed += 1.5f;
-        }
-
-        VendettaAudioManager.Instance?.PlayPickupChime();
-        CloseRuneModal();
-    }
-
-    public void SelectDamageRune()
-    {
-        if (upgradeManager != null) upgradeManager.ChooseDamageRune();
-        else
-        {
-            var combat = FindFirstObjectByType<PlayerCombat>();
-            if (combat != null) combat.attackDamage += 15f;
-        }
-
-        VendettaAudioManager.Instance?.PlaySwordHit();
-        CloseRuneModal();
-    }
-
     public void ShowBossBar(bool show)
     {
         if (bossBarContainer != null) bossBarContainer.SetActive(show);
     }
 
-    public void ToggleBossBar()
-    {
-        if (bossBarContainer != null)
-        {
-            bool next = !bossBarContainer.activeSelf;
-            bossBarContainer.SetActive(next);
-            if (next) VendettaAudioManager.Instance?.PlayBossMusic();
-            else VendettaAudioManager.Instance?.PlayNormalMusic();
-        }
-    }
-
-    private void BuildHUDAndRuneModalIfMissing()
+    private void BuildHUDIfMissing()
     {
         if (hudCanvas == null)
         {
-            var cGO = new GameObject("Vendetta_HD_Canvas");
+            var cGO = new GameObject("Vendetta_HUD_Canvas");
             hudCanvas = cGO.AddComponent<Canvas>();
             hudCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             cGO.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -298,133 +175,127 @@ public class VendettaUIManager : MonoBehaviour
             rtBg.anchorMax = new Vector2(0, 1);
             rtBg.pivot = new Vector2(0, 1);
             rtBg.anchoredPosition = new Vector2(30, -30);
-            rtBg.sizeDelta = new Vector2(250, 24);
-            barBgGO.GetComponent<Image>().color = new Color(0.12f, 0.02f, 0.02f, 0.9f);
+            rtBg.sizeDelta = new Vector2(280, 26);
+            barBgGO.GetComponent<Image>().color = new Color(0.08f, 0.08f, 0.12f, 0.85f);
 
-            var barFillGO = new GameObject("HealthBar_Fill", typeof(RectTransform), typeof(Image));
-            barFillGO.transform.SetParent(barBgGO.transform, false);
-            var rtFill = barFillGO.GetComponent<RectTransform>();
+            var fillGO = new GameObject("HealthBar_Fill", typeof(RectTransform), typeof(Image));
+            fillGO.transform.SetParent(barBgGO.transform, false);
+            var rtFill = fillGO.GetComponent<RectTransform>();
             rtFill.anchorMin = Vector2.zero;
             rtFill.anchorMax = Vector2.one;
-            rtFill.pivot = new Vector2(0, 0.5f);
-            rtFill.sizeDelta = Vector2.zero;
-            vitalityFill = barFillGO.GetComponent<Image>();
-            vitalityFill.color = new Color(0.85f, 0.15f, 0.15f, 1.0f);
-            vitalityFill.type = Image.Type.Filled;
-            vitalityFill.fillMethod = Image.FillMethod.Horizontal;
-            vitalityFill.fillAmount = 1.0f;
+            rtFill.sizeDelta = new Vector2(-4, -4);
+            rtFill.anchoredPosition = Vector2.zero;
+            vitalityFill = fillGO.GetComponent<Image>();
+            vitalityFill.color = new Color(0.85f, 0.15f, 0.18f, 1.0f);
 
-            // Vitality numeric text
-            var textGO = new GameObject("HealthText", typeof(RectTransform), typeof(Text));
-            textGO.transform.SetParent(barBgGO.transform, false);
-            var rtTxt = textGO.GetComponent<RectTransform>();
-            rtTxt.anchorMin = Vector2.zero;
-            rtTxt.anchorMax = Vector2.one;
-            rtTxt.sizeDelta = Vector2.zero;
-            vitalityText = textGO.GetComponent<Text>();
-            vitalityText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-            vitalityText.fontSize = 12;
+            var hpTxtGO = new GameObject("HealthText", typeof(RectTransform), typeof(Text));
+            hpTxtGO.transform.SetParent(barBgGO.transform, false);
+            var rtHpTxt = hpTxtGO.GetComponent<RectTransform>();
+            rtHpTxt.anchorMin = Vector2.zero;
+            rtHpTxt.anchorMax = Vector2.one;
+            rtHpTxt.sizeDelta = Vector2.zero;
+            vitalityText = hpTxtGO.GetComponent<Text>();
+            vitalityText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            vitalityText.fontSize = 13;
             vitalityText.alignment = TextAnchor.MiddleCenter;
             vitalityText.fontStyle = FontStyle.Bold;
             vitalityText.color = Color.white;
             vitalityText.text = "HP: 100 / 100";
         }
 
-        // 2. Light Soul Counter
+        // 2. Soul Counter HUD
         if (soulCounterText == null)
         {
-            var soulTextGO = new GameObject("SoulCounterText", typeof(RectTransform), typeof(Text));
-            soulTextGO.transform.SetParent(hudCanvas.transform, false);
-            var rtText = soulTextGO.GetComponent<RectTransform>();
-            rtText.anchorMin = new Vector2(0, 1);
-            rtText.anchorMax = new Vector2(0, 1);
-            rtText.pivot = new Vector2(0, 1);
-            rtText.anchoredPosition = new Vector2(30, -62);
-            rtText.sizeDelta = new Vector2(300, 30);
-            soulCounterText = soulTextGO.GetComponent<Text>();
-            soulCounterText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-            soulCounterText.fontSize = 16;
+            var soulGO = new GameObject("SoulCounterText", typeof(RectTransform), typeof(Text));
+            soulGO.transform.SetParent(hudCanvas.transform, false);
+            var rtSoul = soulGO.GetComponent<RectTransform>();
+            rtSoul.anchorMin = new Vector2(0, 1);
+            rtSoul.anchorMax = new Vector2(0, 1);
+            rtSoul.pivot = new Vector2(0, 1);
+            rtSoul.anchoredPosition = new Vector2(30, -65);
+            rtSoul.sizeDelta = new Vector2(320, 28);
+            soulCounterText = soulGO.GetComponent<Text>();
+            soulCounterText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            soulCounterText.fontSize = 14;
             soulCounterText.fontStyle = FontStyle.Bold;
-            soulCounterText.color = new Color(1.0f, 0.88f, 0.35f, 1.0f);
+            soulCounterText.alignment = TextAnchor.MiddleLeft;
+            soulCounterText.color = new Color(0.95f, 0.85f, 0.4f, 1.0f);
             soulCounterText.text = "LIGHT SOULS: 0 / 5";
         }
 
-        // 3. Boss Bar (Top Center)
+        // 3. Boss Health Bar (Hidden initially)
         if (bossBarContainer == null)
         {
             bossBarContainer = new GameObject("BossBar_Container", typeof(RectTransform), typeof(Image));
             bossBarContainer.transform.SetParent(hudCanvas.transform, false);
             var rtBossBg = bossBarContainer.GetComponent<RectTransform>();
-            rtBossBg.anchorMin = new Vector2(0.5f, 1);
-            rtBossBg.anchorMax = new Vector2(0.5f, 1);
-            rtBossBg.pivot = new Vector2(0.5f, 1);
-            rtBossBg.anchoredPosition = new Vector2(0, -35);
+            rtBossBg.anchorMin = new Vector2(0.5f, 1f);
+            rtBossBg.anchorMax = new Vector2(0.5f, 1f);
+            rtBossBg.pivot = new Vector2(0.5f, 1f);
+            rtBossBg.anchoredPosition = new Vector2(0, -25);
             rtBossBg.sizeDelta = new Vector2(500, 24);
-            bossBarContainer.GetComponent<Image>().color = new Color(0.15f, 0.05f, 0.05f, 0.85f);
+            bossBarContainer.GetComponent<Image>().color = new Color(0.08f, 0.05f, 0.05f, 0.88f);
 
-            var bossFillGO = new GameObject("BossBar_Fill", typeof(RectTransform), typeof(Image));
-            bossFillGO.transform.SetParent(bossBarContainer.transform, false);
-            var rtBossFill = bossFillGO.GetComponent<RectTransform>();
+            var fillBossGO = new GameObject("BossFill", typeof(RectTransform), typeof(Image));
+            fillBossGO.transform.SetParent(bossBarContainer.transform, false);
+            var rtBossFill = fillBossGO.GetComponent<RectTransform>();
             rtBossFill.anchorMin = Vector2.zero;
             rtBossFill.anchorMax = Vector2.one;
-            rtBossFill.pivot = new Vector2(0, 0.5f);
-            rtBossFill.sizeDelta = Vector2.zero;
-            bossHealthFill = bossFillGO.GetComponent<Image>();
-            bossHealthFill.color = new Color(0.95f, 0.2f, 0.1f, 1.0f);
-            bossHealthFill.type = Image.Type.Filled;
-            bossHealthFill.fillMethod = Image.FillMethod.Horizontal;
-            bossHealthFill.fillAmount = 1.0f;
+            rtBossFill.sizeDelta = new Vector2(-4, -4);
+            rtBossFill.anchoredPosition = Vector2.zero;
+            bossHealthFill = fillBossGO.GetComponent<Image>();
+            bossHealthFill.color = new Color(0.78f, 0.12f, 0.15f, 1.0f);
 
-            var bossLabelGO = new GameObject("BossLabel", typeof(RectTransform), typeof(Text));
-            bossLabelGO.transform.SetParent(bossBarContainer.transform, false);
-            var rtBossLabel = bossLabelGO.GetComponent<RectTransform>();
-            rtBossLabel.anchorMin = new Vector2(0.5f, 1);
-            rtBossLabel.anchorMax = new Vector2(0.5f, 1);
-            rtBossLabel.pivot = new Vector2(0.5f, 0);
-            rtBossLabel.anchoredPosition = new Vector2(0, 4);
-            rtBossLabel.sizeDelta = new Vector2(400, 22);
-            var txt = bossLabelGO.GetComponent<Text>();
-            txt.font = soulCounterText.font;
-            txt.fontSize = 14;
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.fontStyle = FontStyle.Bold;
-            txt.color = Color.white;
-            txt.text = "KNIGHT OF VENGEANCE";
-
+            var bossLblGO = new GameObject("BossLabel", typeof(RectTransform), typeof(Text));
+            bossLblGO.transform.SetParent(bossBarContainer.transform, false);
+            var rtBossLabel = bossLblGO.GetComponent<RectTransform>();
+            rtBossLabel.anchorMin = Vector2.zero;
+            rtBossLabel.anchorMax = Vector2.one;
+            rtBossLabel.sizeDelta = Vector2.zero;
+            var txtBoss = bossLblGO.GetComponent<Text>();
+            txtBoss.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            txtBoss.fontSize = 12;
+            txtBoss.alignment = TextAnchor.MiddleCenter;
+            txtBoss.fontStyle = FontStyle.Bold;
+            txtBoss.color = new Color(1f, 0.85f, 0.5f, 1f);
+            txtBoss.text = "ANCIENT CORRUPTED KNIGHT";
             bossBarContainer.SetActive(false);
         }
 
-        // 4. High-Quality Rune Ascension Modal
-        if (runeModalPanel == null)
+        // 4. Clean Fallback Rune Panel (only used if UpgradeCanvas is missing from scene)
+        if (upgradeManager != null && upgradeManager.upgradeCanvas == null && runeModalPanel == null)
         {
-            runeModalPanel = new GameObject("RuneModal_HD_Panel", typeof(RectTransform), typeof(Image));
+            runeModalPanel = new GameObject("RuneModal_Fallback", typeof(RectTransform), typeof(Image));
             runeModalPanel.transform.SetParent(hudCanvas.transform, false);
             var rtModal = runeModalPanel.GetComponent<RectTransform>();
             rtModal.anchorMin = Vector2.zero;
             rtModal.anchorMax = Vector2.one;
             rtModal.sizeDelta = Vector2.zero;
-            runeModalPanel.GetComponent<Image>().color = new Color(0.04f, 0.05f, 0.08f, 0.92f);
+            runeModalPanel.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.07f, 0.92f);
 
-            // Title
-            var titleGO = new GameObject("Ascension_Title", typeof(RectTransform), typeof(Text));
+            var titleGO = new GameObject("RuneTitle", typeof(RectTransform), typeof(Text));
             titleGO.transform.SetParent(runeModalPanel.transform, false);
             var rtTitle = titleGO.GetComponent<RectTransform>();
-            rtTitle.anchorMin = new Vector2(0.5f, 0.85f);
-            rtTitle.anchorMax = new Vector2(0.5f, 0.85f);
-            rtTitle.sizeDelta = new Vector2(600, 50);
+            rtTitle.anchorMin = new Vector2(0.5f, 0.72f);
+            rtTitle.anchorMax = new Vector2(0.5f, 0.72f);
+            rtTitle.sizeDelta = new Vector2(600, 60);
             var titleTxt = titleGO.GetComponent<Text>();
-            titleTxt.font = soulCounterText.font;
-            titleTxt.fontSize = 28;
+            titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleTxt.fontSize = 32;
             titleTxt.alignment = TextAnchor.MiddleCenter;
             titleTxt.fontStyle = FontStyle.Bold;
-            titleTxt.color = new Color(1.0f, 0.85f, 0.35f, 1.0f);
-            titleTxt.text = "SOUL ASCENSION: CHOOSE A RUNE";
+            titleTxt.color = new Color(1.0f, 0.85f, 0.3f, 1.0f);
+            titleTxt.text = "CHOOSE YOUR RUNE";
 
-            // Card 1: Speed Rune
-            CreateRuneCard(runeModalPanel.transform, new Vector2(-180, -30), "RUNE OF CELERITY", "+1.5 Movement Speed & Agile Dash", speedRuneSprite, SelectSpeedRune);
+            CreateSimpleRuneBtn(runeModalPanel.transform, new Vector2(-140, 0), "SPEED RUNE", () => {
+                upgradeManager?.ChooseSpeedRune();
+                runeModalPanel.SetActive(false);
+            });
 
-            // Card 2: Damage Rune
-            CreateRuneCard(runeModalPanel.transform, new Vector2(180, -30), "RUNE OF DESTRUCTION", "+15 Katana Slash Damage", damageRuneSprite, SelectDamageRune);
+            CreateSimpleRuneBtn(runeModalPanel.transform, new Vector2(140, 0), "DAMAGE RUNE", () => {
+                upgradeManager?.ChooseDamageRune();
+                runeModalPanel.SetActive(false);
+            });
 
             runeModalPanel.SetActive(false);
         }
@@ -447,7 +318,7 @@ public class VendettaUIManager : MonoBehaviour
             rtVicTitle.anchorMax = new Vector2(0.5f, 0.65f);
             rtVicTitle.sizeDelta = new Vector2(800, 80);
             var txtVic = vicTitleGO.GetComponent<Text>();
-            txtVic.font = soulCounterText.font;
+            txtVic.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txtVic.fontSize = 44;
             txtVic.alignment = TextAnchor.MiddleCenter;
             txtVic.fontStyle = FontStyle.Bold;
@@ -461,11 +332,11 @@ public class VendettaUIManager : MonoBehaviour
             rtVicSub.anchorMax = new Vector2(0.5f, 0.52f);
             rtVicSub.sizeDelta = new Vector2(800, 40);
             var txtSub = vicSubGO.GetComponent<Text>();
-            txtSub.font = soulCounterText.font;
+            txtSub.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txtSub.fontSize = 20;
             txtSub.alignment = TextAnchor.MiddleCenter;
             txtSub.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
-            txtSub.text = "Vengeance Claimed · Boss Slain";
+            txtSub.text = "Boss Slain";
 
             // Restart Button
             var btnRestartGO = new GameObject("Btn_Restart", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -488,7 +359,7 @@ public class VendettaUIManager : MonoBehaviour
             rtBtnTxt.anchorMax = Vector2.one;
             rtBtnTxt.sizeDelta = Vector2.zero;
             var txtBtn = btnTxtGO.GetComponent<Text>();
-            txtBtn.font = soulCounterText.font;
+            txtBtn.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txtBtn.fontSize = 18;
             txtBtn.alignment = TextAnchor.MiddleCenter;
             txtBtn.fontStyle = FontStyle.Bold;
@@ -499,89 +370,30 @@ public class VendettaUIManager : MonoBehaviour
         }
     }
 
-    private void CreateRuneCard(Transform parent, Vector2 pos, string title, string desc, Sprite icon, UnityEngine.Events.UnityAction onClick)
+    private void CreateSimpleRuneBtn(Transform parent, Vector2 pos, string label, UnityEngine.Events.UnityAction onClick)
     {
-        var cardGO = new GameObject("Card_" + title, typeof(RectTransform), typeof(Image), typeof(Button));
-        cardGO.transform.SetParent(parent, false);
-        var rtCard = cardGO.GetComponent<RectTransform>();
-        rtCard.anchoredPosition = pos;
-        rtCard.sizeDelta = new Vector2(250, 360);
+        var btnGO = new GameObject("Btn_" + label, typeof(RectTransform), typeof(Image), typeof(Button));
+        btnGO.transform.SetParent(parent, false);
+        var rtBtn = btnGO.GetComponent<RectTransform>();
+        rtBtn.anchoredPosition = pos;
+        rtBtn.sizeDelta = new Vector2(220, 60);
+        btnGO.GetComponent<Image>().color = new Color(0.18f, 0.22f, 0.30f, 0.95f);
 
-        var imgCard = cardGO.GetComponent<Image>();
-        if (cardFrameSprite != null)
-        {
-            imgCard.sprite = cardFrameSprite;
-            imgCard.color = Color.white;
-        }
-        else
-        {
-            imgCard.color = new Color(0.15f, 0.18f, 0.24f, 0.95f);
-        }
-
-        var btn = cardGO.GetComponent<Button>();
+        var btn = btnGO.GetComponent<Button>();
         btn.onClick.AddListener(onClick);
 
-        // Icon
-        if (icon != null)
-        {
-            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            iconGO.transform.SetParent(cardGO.transform, false);
-            var rtIcon = iconGO.GetComponent<RectTransform>();
-            rtIcon.anchoredPosition = new Vector2(0, 50);
-            rtIcon.sizeDelta = new Vector2(140, 140);
-            var imgIcon = iconGO.GetComponent<Image>();
-            imgIcon.sprite = icon;
-            imgIcon.preserveAspect = true;
-        }
-
-        // Title
-        var titleGO = new GameObject("CardTitle", typeof(RectTransform), typeof(Text));
-        titleGO.transform.SetParent(cardGO.transform, false);
-        var rtTitle = titleGO.GetComponent<RectTransform>();
-        rtTitle.anchoredPosition = new Vector2(0, -50);
-        rtTitle.sizeDelta = new Vector2(230, 40);
-        var txtTitle = titleGO.GetComponent<Text>();
-        txtTitle.font = soulCounterText.font;
-        txtTitle.fontSize = 15;
-        txtTitle.alignment = TextAnchor.MiddleCenter;
-        txtTitle.fontStyle = FontStyle.Bold;
-        txtTitle.color = new Color(1.0f, 0.9f, 0.4f, 1.0f);
-        txtTitle.text = title;
-
-        // Desc
-        var descGO = new GameObject("CardDesc", typeof(RectTransform), typeof(Text));
-        descGO.transform.SetParent(cardGO.transform, false);
-        var rtDesc = descGO.GetComponent<RectTransform>();
-        rtDesc.anchoredPosition = new Vector2(0, -110);
-        rtDesc.sizeDelta = new Vector2(220, 60);
-        var txtDesc = descGO.GetComponent<Text>();
-        txtDesc.font = soulCounterText.font;
-        txtDesc.fontSize = 12;
-        txtDesc.alignment = TextAnchor.MiddleCenter;
-        txtDesc.color = new Color(0.85f, 0.88f, 0.92f, 1.0f);
-        txtDesc.text = desc;
-    }
-
-    private void OnGUI()
-    {
-        if (!showDebugSoundboard)
-        {
-            GUI.color = Color.white;
-            GUI.Label(new Rect(10, Screen.height - 25, 380, 20), "[F1] Audio/UI Soundboard | [R] Rune Modal | [K] +1 Soul");
-            return;
-        }
-
-        GUI.Box(new Rect(10, 10, 240, 290), "Tech/UI Art: Manthan");
-        if (GUI.Button(new Rect(20, 35, 220, 25), "Toggle Rune Modal (R)")) ToggleRuneModal();
-        if (GUI.Button(new Rect(20, 65, 220, 25), "+1 Soul Charge (K)"))
-        {
-            if (playerLight != null) playerLight.AbsorbLight(1);
-        }
-        if (GUI.Button(new Rect(20, 95, 220, 25), "Toggle Boss Bar (B)")) ToggleBossBar();
-        if (GUI.Button(new Rect(20, 125, 220, 25), "Play Sword Swing")) VendettaAudioManager.Instance?.PlaySwordSwing();
-        if (GUI.Button(new Rect(20, 155, 220, 25), "Play Sword Hit")) VendettaAudioManager.Instance?.PlaySwordHit();
-        if (GUI.Button(new Rect(20, 185, 220, 25), "Play Player Hurt")) VendettaAudioManager.Instance?.PlayPlayerHurt();
-        if (GUI.Button(new Rect(20, 215, 220, 25), "Play Soul Pickup")) VendettaAudioManager.Instance?.PlayPickupChime();
-        if (GUI.Button(new Rect(20, 245, 220, 25), "Simulate Victory")) ShowVictoryScreen();
+        var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
+        txtGO.transform.SetParent(btnGO.transform, false);
+        var rtTxt = txtGO.GetComponent<RectTransform>();
+        rtTxt.anchorMin = Vector2.zero;
+        rtTxt.anchorMax = Vector2.one;
+        rtTxt.sizeDelta = Vector2.zero;
+        var txt = txtGO.GetComponent<Text>();
+        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.fontSize = 16;
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.fontStyle = FontStyle.Bold;
+        txt.color = Color.white;
+        txt.text = label;
     }
 }
