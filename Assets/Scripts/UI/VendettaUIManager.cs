@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
+using System.IO;
 
 public class VendettaUIManager : MonoBehaviour
 {
@@ -9,14 +10,16 @@ public class VendettaUIManager : MonoBehaviour
     [Header("In-Game HUD")]
     public Canvas hudCanvas;
     public Image vitalityFill;
-    public Text vitalityText;
+    public Text vitalityLabelText;
+    public Image staminaFill;
+    public Text staminaLabelText;
     public Image damageFlashOverlay;
     public Image bossHealthFill;
     public GameObject bossBarContainer;
     public Text soulCounterText;
 
-    [Header("Rune Modal Reference")]
-    public GameObject runeModalPanel;
+    [Header("Ascension Rune Modal (Custom Designed)")]
+    public GameObject ascensionModalPanel;
     public Sprite cardFrameSprite;
     public Sprite speedRuneSprite;
     public Sprite damageRuneSprite;
@@ -25,6 +28,8 @@ public class VendettaUIManager : MonoBehaviour
     public GameObject victoryBannerPanel;
 
     private PlayerHealth playerHealth;
+    private PlayerMovement playerMovement;
+    private PlayerCombat playerCombat;
     private PlayerLight playerLight;
     private BossHealth bossHealth;
     private UpgradeManager upgradeManager;
@@ -37,22 +42,32 @@ public class VendettaUIManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        LoadRuneSprites();
     }
 
     private void Start()
     {
         playerHealth = FindFirstObjectByType<PlayerHealth>();
+        playerMovement = FindFirstObjectByType<PlayerMovement>();
+        playerCombat = FindFirstObjectByType<PlayerCombat>();
         playerLight = FindFirstObjectByType<PlayerLight>();
         upgradeManager = FindFirstObjectByType<UpgradeManager>();
         bossHealth = FindFirstObjectByType<BossHealth>();
 
         GameEvents.OnBossDefeated += ShowVictoryScreen;
 
-        BuildHUDIfMissing();
+        BuildHUDAndAscensionModal();
 
         if (bossBarContainer != null) bossBarContainer.SetActive(false);
         if (victoryBannerPanel != null) victoryBannerPanel.SetActive(false);
-        if (runeModalPanel != null) runeModalPanel.SetActive(false);
+        if (ascensionModalPanel != null) ascensionModalPanel.SetActive(false);
+
+        // Hide teammate's placeholder canvas so our customized Ascension UI takes full effect
+        if (upgradeManager != null && upgradeManager.upgradeCanvas != null)
+        {
+            upgradeManager.upgradeCanvas.SetActive(false);
+        }
     }
 
     private void OnDestroy()
@@ -63,6 +78,8 @@ public class VendettaUIManager : MonoBehaviour
     private void Update()
     {
         if (playerHealth == null) playerHealth = FindFirstObjectByType<PlayerHealth>();
+        if (playerMovement == null) playerMovement = FindFirstObjectByType<PlayerMovement>();
+        if (playerCombat == null) playerCombat = FindFirstObjectByType<PlayerCombat>();
         if (playerLight == null) playerLight = FindFirstObjectByType<PlayerLight>();
         if (upgradeManager == null) upgradeManager = FindFirstObjectByType<UpgradeManager>();
         if (bossHealth == null) bossHealth = FindFirstObjectByType<BossHealth>();
@@ -73,11 +90,6 @@ public class VendettaUIManager : MonoBehaviour
             float hpPct = Mathf.Clamp01(playerHealth.currentHealth / playerHealth.maxHealth);
             vitalityFill.rectTransform.anchorMax = new Vector2(hpPct, 1f);
             vitalityFill.fillAmount = hpPct;
-
-            if (vitalityText != null)
-            {
-                vitalityText.text = "HP: " + Mathf.CeilToInt(playerHealth.currentHealth) + " / " + Mathf.CeilToInt(playerHealth.maxHealth);
-            }
         }
 
         // Update soul counter text
@@ -98,6 +110,96 @@ public class VendettaUIManager : MonoBehaviour
                 bossHealthFill.fillAmount = bossPct;
             }
         }
+
+        // Check if Ascension modal is open and handle keyboard hotkeys (1 / 2)
+        if (ascensionModalPanel != null && ascensionModalPanel.activeSelf)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
+            {
+                SelectSwiftnessRune();
+            }
+            else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
+            {
+                SelectFuryRune();
+            }
+        }
+    }
+
+    public void OpenAscensionModal()
+    {
+        // Enforce strictly requiring 5 souls harvested (never open at 4)
+        int currentSouls = playerLight != null ? playerLight.lightAmount : 5;
+        if (currentSouls < 5)
+        {
+            Debug.LogWarning("[VendettaUI] Cannot open Ascension Modal: Only " + currentSouls + " souls collected. 5 required!");
+            return;
+        }
+
+        if (ascensionModalPanel != null)
+        {
+            ascensionModalPanel.SetActive(true);
+            Time.timeScale = 0f;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            VendettaAudioManager.Instance?.PlayPickupChime();
+        }
+    }
+
+    public void CloseAscensionModal()
+    {
+        if (ascensionModalPanel != null)
+        {
+            ascensionModalPanel.SetActive(false);
+        }
+
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Upgrade)
+        {
+            GameManager.Instance.currentState = GameManager.GameState.Playing;
+        }
+
+        if (upgradeManager != null && upgradeManager.upgradeCanvas != null)
+        {
+            upgradeManager.upgradeCanvas.SetActive(false);
+        }
+    }
+
+    public void SelectSwiftnessRune()
+    {
+        if (playerMovement != null)
+        {
+            playerMovement.speed += 1.75f;
+            Debug.Log("[Ascension] RUNE OF SWIFTNESS embodied! Speed: " + playerMovement.speed);
+        }
+        else if (upgradeManager != null)
+        {
+            upgradeManager.ChooseSpeedRune();
+        }
+
+        VendettaAudioManager.Instance?.PlaySwordSwing();
+        VendettaAudioManager.Instance?.PlayPickupChime();
+        CloseAscensionModal();
+    }
+
+    public void SelectFuryRune()
+    {
+        if (playerCombat != null)
+        {
+            playerCombat.attackDamage += 10f;
+            Debug.Log("[Ascension] RUNE OF FURY embodied! Damage: " + playerCombat.attackDamage);
+        }
+        else if (upgradeManager != null)
+        {
+            upgradeManager.ChooseDamageRune();
+        }
+
+        VendettaAudioManager.Instance?.PlaySwordHit();
+        VendettaAudioManager.Instance?.PlayPickupChime();
+        CloseAscensionModal();
     }
 
     public void TriggerDamageFlash()
@@ -140,7 +242,36 @@ public class VendettaUIManager : MonoBehaviour
         if (bossBarContainer != null) bossBarContainer.SetActive(show);
     }
 
-    private void BuildHUDIfMissing()
+    private void LoadRuneSprites()
+    {
+        if (cardFrameSprite == null) cardFrameSprite = LoadSpriteDirect("UI/T_Card_Frame_HD.png");
+        if (speedRuneSprite == null) speedRuneSprite = LoadSpriteDirect("UI/T_Rune_Speed_HD.png");
+        if (damageRuneSprite == null) damageRuneSprite = LoadSpriteDirect("UI/T_Rune_Damage_HD.png");
+    }
+
+    private Sprite LoadSpriteDirect(string relativePath)
+    {
+        try
+        {
+            string fullPath = Path.Combine(Application.dataPath, relativePath);
+            if (File.Exists(fullPath))
+            {
+                byte[] bytes = File.ReadAllBytes(fullPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (tex.LoadImage(bytes))
+                {
+                    return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("[VendettaUI] Could not load sprite from " + relativePath + ": " + e.Message);
+        }
+        return null;
+    }
+
+    private void BuildHUDAndAscensionModal()
     {
         if (hudCanvas == null)
         {
@@ -151,7 +282,7 @@ public class VendettaUIManager : MonoBehaviour
             cGO.AddComponent<GraphicRaycaster>();
         }
 
-        // Damage flash screen overlay
+        // Screen damage flash overlay
         if (damageFlashOverlay == null)
         {
             var flashGO = new GameObject("DamageFlashOverlay", typeof(RectTransform), typeof(Image));
@@ -165,45 +296,85 @@ public class VendettaUIManager : MonoBehaviour
             damageFlashOverlay.raycastTarget = false;
         }
 
-        // 1. Vitality Bar (Health)
+        // Top-Left: Vitality (Health) Bar
         if (vitalityFill == null)
         {
-            var barBgGO = new GameObject("HealthBar_BG", typeof(RectTransform), typeof(Image));
-            barBgGO.transform.SetParent(hudCanvas.transform, false);
-            var rtBg = barBgGO.GetComponent<RectTransform>();
-            rtBg.anchorMin = new Vector2(0, 1);
-            rtBg.anchorMax = new Vector2(0, 1);
-            rtBg.pivot = new Vector2(0, 1);
-            rtBg.anchoredPosition = new Vector2(30, -30);
-            rtBg.sizeDelta = new Vector2(280, 26);
-            barBgGO.GetComponent<Image>().color = new Color(0.08f, 0.08f, 0.12f, 0.85f);
+            // Vitality label
+            var lblGO = new GameObject("Label_Vitality", typeof(RectTransform), typeof(Text));
+            lblGO.transform.SetParent(hudCanvas.transform, false);
+            var rtLbl = lblGO.GetComponent<RectTransform>();
+            rtLbl.anchorMin = new Vector2(0, 1);
+            rtLbl.anchorMax = new Vector2(0, 1);
+            rtLbl.pivot = new Vector2(0, 1);
+            rtLbl.anchoredPosition = new Vector2(25, -20);
+            rtLbl.sizeDelta = new Vector2(120, 16);
+            vitalityLabelText = lblGO.GetComponent<Text>();
+            vitalityLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            vitalityLabelText.fontSize = 11;
+            vitalityLabelText.fontStyle = FontStyle.Bold;
+            vitalityLabelText.color = new Color(0.9f, 0.9f, 0.9f, 1f);
+            vitalityLabelText.text = "VITALITY";
 
-            var fillGO = new GameObject("HealthBar_Fill", typeof(RectTransform), typeof(Image));
-            fillGO.transform.SetParent(barBgGO.transform, false);
+            // Red Health Bar BG
+            var hpBgGO = new GameObject("Vitality_BG", typeof(RectTransform), typeof(Image));
+            hpBgGO.transform.SetParent(hudCanvas.transform, false);
+            var rtHpBg = hpBgGO.GetComponent<RectTransform>();
+            rtHpBg.anchorMin = new Vector2(0, 1);
+            rtHpBg.anchorMax = new Vector2(0, 1);
+            rtHpBg.pivot = new Vector2(0, 1);
+            rtHpBg.anchoredPosition = new Vector2(25, -36);
+            rtHpBg.sizeDelta = new Vector2(240, 18);
+            hpBgGO.GetComponent<Image>().color = new Color(0.18f, 0.05f, 0.05f, 0.85f);
+
+            // Red Health Bar Fill
+            var fillGO = new GameObject("Vitality_Fill", typeof(RectTransform), typeof(Image));
+            fillGO.transform.SetParent(hpBgGO.transform, false);
             var rtFill = fillGO.GetComponent<RectTransform>();
             rtFill.anchorMin = Vector2.zero;
             rtFill.anchorMax = Vector2.one;
-            rtFill.sizeDelta = new Vector2(-4, -4);
-            rtFill.anchoredPosition = Vector2.zero;
+            rtFill.sizeDelta = Vector2.zero;
             vitalityFill = fillGO.GetComponent<Image>();
-            vitalityFill.color = new Color(0.85f, 0.15f, 0.18f, 1.0f);
+            vitalityFill.color = new Color(0.82f, 0.20f, 0.20f, 1.0f);
 
-            var hpTxtGO = new GameObject("HealthText", typeof(RectTransform), typeof(Text));
-            hpTxtGO.transform.SetParent(barBgGO.transform, false);
-            var rtHpTxt = hpTxtGO.GetComponent<RectTransform>();
-            rtHpTxt.anchorMin = Vector2.zero;
-            rtHpTxt.anchorMax = Vector2.one;
-            rtHpTxt.sizeDelta = Vector2.zero;
-            vitalityText = hpTxtGO.GetComponent<Text>();
-            vitalityText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            vitalityText.fontSize = 13;
-            vitalityText.alignment = TextAnchor.MiddleCenter;
-            vitalityText.fontStyle = FontStyle.Bold;
-            vitalityText.color = Color.white;
-            vitalityText.text = "HP: 100 / 100";
+            // Stamina label
+            var stLblGO = new GameObject("Label_Stamina", typeof(RectTransform), typeof(Text));
+            stLblGO.transform.SetParent(hudCanvas.transform, false);
+            var rtStLbl = stLblGO.GetComponent<RectTransform>();
+            rtStLbl.anchorMin = new Vector2(0, 1);
+            rtStLbl.anchorMax = new Vector2(0, 1);
+            rtStLbl.pivot = new Vector2(0, 1);
+            rtStLbl.anchoredPosition = new Vector2(25, -58);
+            rtStLbl.sizeDelta = new Vector2(120, 16);
+            staminaLabelText = stLblGO.GetComponent<Text>();
+            staminaLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            staminaLabelText.fontSize = 11;
+            staminaLabelText.fontStyle = FontStyle.Bold;
+            staminaLabelText.color = new Color(0.9f, 0.9f, 0.9f, 1f);
+            staminaLabelText.text = "STAMINA";
+
+            // Green Stamina Bar BG
+            var stBgGO = new GameObject("Stamina_BG", typeof(RectTransform), typeof(Image));
+            stBgGO.transform.SetParent(hudCanvas.transform, false);
+            var rtStBg = stBgGO.GetComponent<RectTransform>();
+            rtStBg.anchorMin = new Vector2(0, 1);
+            rtStBg.anchorMax = new Vector2(0, 1);
+            rtStBg.pivot = new Vector2(0, 1);
+            rtStBg.anchoredPosition = new Vector2(25, -74);
+            rtStBg.sizeDelta = new Vector2(240, 18);
+            stBgGO.GetComponent<Image>().color = new Color(0.05f, 0.16f, 0.08f, 0.85f);
+
+            // Green Stamina Bar Fill
+            var stFillGO = new GameObject("Stamina_Fill", typeof(RectTransform), typeof(Image));
+            stFillGO.transform.SetParent(stBgGO.transform, false);
+            var rtStFill = stFillGO.GetComponent<RectTransform>();
+            rtStFill.anchorMin = Vector2.zero;
+            rtStFill.anchorMax = Vector2.one;
+            rtStFill.sizeDelta = Vector2.zero;
+            staminaFill = stFillGO.GetComponent<Image>();
+            staminaFill.color = new Color(0.24f, 0.65f, 0.32f, 1.0f);
         }
 
-        // 2. Soul Counter HUD
+        // Soul Counter Text
         if (soulCounterText == null)
         {
             var soulGO = new GameObject("SoulCounterText", typeof(RectTransform), typeof(Text));
@@ -212,18 +383,17 @@ public class VendettaUIManager : MonoBehaviour
             rtSoul.anchorMin = new Vector2(0, 1);
             rtSoul.anchorMax = new Vector2(0, 1);
             rtSoul.pivot = new Vector2(0, 1);
-            rtSoul.anchoredPosition = new Vector2(30, -65);
-            rtSoul.sizeDelta = new Vector2(320, 28);
+            rtSoul.anchoredPosition = new Vector2(25, -102);
+            rtSoul.sizeDelta = new Vector2(260, 24);
             soulCounterText = soulGO.GetComponent<Text>();
             soulCounterText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            soulCounterText.fontSize = 14;
+            soulCounterText.fontSize = 13;
             soulCounterText.fontStyle = FontStyle.Bold;
-            soulCounterText.alignment = TextAnchor.MiddleLeft;
-            soulCounterText.color = new Color(0.95f, 0.85f, 0.4f, 1.0f);
+            soulCounterText.color = new Color(0.92f, 0.82f, 0.45f, 1f);
             soulCounterText.text = "LIGHT SOULS: 0 / 5";
         }
 
-        // 3. Boss Health Bar (Hidden initially)
+        // Boss Health Bar
         if (bossBarContainer == null)
         {
             bossBarContainer = new GameObject("BossBar_Container", typeof(RectTransform), typeof(Image));
@@ -262,45 +432,113 @@ public class VendettaUIManager : MonoBehaviour
             bossBarContainer.SetActive(false);
         }
 
-        // 4. Clean Fallback Rune Panel (only used if UpgradeCanvas is missing from scene)
-        if (upgradeManager != null && upgradeManager.upgradeCanvas == null && runeModalPanel == null)
+        // ==========================================
+        // ASCENSION : EMBODY YOUR RUNE MODAL
+        // ==========================================
+        if (ascensionModalPanel == null)
         {
-            runeModalPanel = new GameObject("RuneModal_Fallback", typeof(RectTransform), typeof(Image));
-            runeModalPanel.transform.SetParent(hudCanvas.transform, false);
-            var rtModal = runeModalPanel.GetComponent<RectTransform>();
+            ascensionModalPanel = new GameObject("AscensionModal_Panel", typeof(RectTransform), typeof(Image));
+            ascensionModalPanel.transform.SetParent(hudCanvas.transform, false);
+            var rtModal = ascensionModalPanel.GetComponent<RectTransform>();
             rtModal.anchorMin = Vector2.zero;
             rtModal.anchorMax = Vector2.one;
             rtModal.sizeDelta = Vector2.zero;
-            runeModalPanel.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.07f, 0.92f);
+            ascensionModalPanel.GetComponent<Image>().color = new Color(0.015f, 0.015f, 0.022f, 0.96f);
 
-            var titleGO = new GameObject("RuneTitle", typeof(RectTransform), typeof(Text));
-            titleGO.transform.SetParent(runeModalPanel.transform, false);
+            // Title: ❖ ASCENSION : EMBODY YOUR RUNE ❖
+            var titleGO = new GameObject("AscensionTitle", typeof(RectTransform), typeof(Text));
+            titleGO.transform.SetParent(ascensionModalPanel.transform, false);
             var rtTitle = titleGO.GetComponent<RectTransform>();
-            rtTitle.anchorMin = new Vector2(0.5f, 0.72f);
-            rtTitle.anchorMax = new Vector2(0.5f, 0.72f);
-            rtTitle.sizeDelta = new Vector2(600, 60);
-            var titleTxt = titleGO.GetComponent<Text>();
-            titleTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            titleTxt.fontSize = 32;
-            titleTxt.alignment = TextAnchor.MiddleCenter;
-            titleTxt.fontStyle = FontStyle.Bold;
-            titleTxt.color = new Color(1.0f, 0.85f, 0.3f, 1.0f);
-            titleTxt.text = "CHOOSE YOUR RUNE";
+            rtTitle.anchorMin = new Vector2(0.5f, 0.90f);
+            rtTitle.anchorMax = new Vector2(0.5f, 0.90f);
+            rtTitle.sizeDelta = new Vector2(900, 50);
+            var txtTitle = titleGO.GetComponent<Text>();
+            txtTitle.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            txtTitle.fontSize = 24;
+            txtTitle.alignment = TextAnchor.MiddleCenter;
+            txtTitle.fontStyle = FontStyle.Bold;
+            txtTitle.color = new Color(0.89f, 0.75f, 0.40f, 1f);
+            txtTitle.text = "❖  ASCENSION : EMBODY YOUR RUNE  ❖";
 
-            CreateSimpleRuneBtn(runeModalPanel.transform, new Vector2(-140, 0), "SPEED RUNE", () => {
-                upgradeManager?.ChooseSpeedRune();
-                runeModalPanel.SetActive(false);
-            });
+            // Subtitle
+            var subGO = new GameObject("AscensionSubtitle", typeof(RectTransform), typeof(Text));
+            subGO.transform.SetParent(ascensionModalPanel.transform, false);
+            var rtSub = subGO.GetComponent<RectTransform>();
+            rtSub.anchorMin = new Vector2(0.5f, 0.84f);
+            rtSub.anchorMax = new Vector2(0.5f, 0.84f);
+            rtSub.sizeDelta = new Vector2(900, 30);
+            var txtSub = subGO.GetComponent<Text>();
+            txtSub.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            txtSub.fontSize = 12;
+            txtSub.alignment = TextAnchor.MiddleCenter;
+            txtSub.color = new Color(0.72f, 0.72f, 0.75f, 1f);
+            txtSub.text = "Five souls harvested. Infuse your blade with divine power to conquer the Titan Knight.";
 
-            CreateSimpleRuneBtn(runeModalPanel.transform, new Vector2(140, 0), "DAMAGE RUNE", () => {
-                upgradeManager?.ChooseDamageRune();
-                runeModalPanel.SetActive(false);
-            });
+            // Left Card: RUNE OF SWIFTNESS
+            CreateAscensionCard(
+                parent: ascensionModalPanel.transform,
+                anchoredPos: new Vector2(-230, -25),
+                title: "RUNE OF SWIFTNESS",
+                titleColor: new Color(0.38f, 0.74f, 0.92f, 1f), // Cyan
+                icon: speedRuneSprite,
+                quote: "\"Gale-force fury awakens in your limbs. Strike like an untamed hurricane.\"",
+                bulletPoints: "✦  +35% Movement Speed\n✦  +25% Slash Velocity\n✦  Airborne Downward Slash",
+                bulletColor: new Color(0.42f, 0.80f, 0.95f, 1f),
+                buttonLabel: "⬥  EMBODY (PRESS 1)  ⬥",
+                onClick: SelectSwiftnessRune
+            );
 
-            runeModalPanel.SetActive(false);
+            // Right Card: RUNE OF FURY
+            CreateAscensionCard(
+                parent: ascensionModalPanel.transform,
+                anchoredPos: new Vector2(230, -25),
+                title: "RUNE OF FURY",
+                titleColor: new Color(0.98f, 0.55f, 0.22f, 1f), // Orange
+                icon: damageRuneSprite,
+                quote: "\"Cleave through blackened armor. Unbridled flame ignites within the blade.\"",
+                bulletPoints: "✦  +40% Heavy Slash Damage\n✦  +50% Stagger Impact\n✦  Critical Finisher Strike",
+                bulletColor: new Color(0.98f, 0.60f, 0.35f, 1f),
+                buttonLabel: "⬥  EMBODY (PRESS 2)  ⬥",
+                onClick: SelectFuryRune
+            );
+
+            // 5 Soul Slots Indicator at Bottom
+            var soulSlotsGO = new GameObject("SoulSlots_Container", typeof(RectTransform));
+            soulSlotsGO.transform.SetParent(ascensionModalPanel.transform, false);
+            var rtSlots = soulSlotsGO.GetComponent<RectTransform>();
+            rtSlots.anchorMin = new Vector2(0.5f, 0.11f);
+            rtSlots.anchorMax = new Vector2(0.5f, 0.11f);
+            rtSlots.sizeDelta = new Vector2(240, 36);
+
+            for (int i = 0; i < 5; i++)
+            {
+                var slot = new GameObject("Slot_" + (i + 1), typeof(RectTransform), typeof(Image));
+                slot.transform.SetParent(soulSlotsGO.transform, false);
+                var rtS = slot.GetComponent<RectTransform>();
+                rtS.anchoredPosition = new Vector2((i - 2) * 44, 0);
+                rtS.sizeDelta = new Vector2(34, 34);
+                var imgS = slot.GetComponent<Image>();
+                imgS.color = new Color(0.89f, 0.75f, 0.40f, 0.85f); // Glowing filled gold slot
+            }
+
+            // Bottom Prompt Text
+            var promptGO = new GameObject("PromptText", typeof(RectTransform), typeof(Text));
+            promptGO.transform.SetParent(ascensionModalPanel.transform, false);
+            var rtPrompt = promptGO.GetComponent<RectTransform>();
+            rtPrompt.anchorMin = new Vector2(0.5f, 0.05f);
+            rtPrompt.anchorMax = new Vector2(0.5f, 0.05f);
+            rtPrompt.sizeDelta = new Vector2(800, 26);
+            var txtPrompt = promptGO.GetComponent<Text>();
+            txtPrompt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            txtPrompt.fontSize = 11;
+            txtPrompt.alignment = TextAnchor.MiddleCenter;
+            txtPrompt.color = new Color(0.60f, 0.60f, 0.65f, 1f);
+            txtPrompt.text = "[ Click either Card or Press 1 / 2 on Keyboard to Embody ]";
+
+            ascensionModalPanel.SetActive(false);
         }
 
-        // 5. Victory Screen Banner
+        // Victory Screen Banner
         if (victoryBannerPanel == null)
         {
             victoryBannerPanel = new GameObject("VictoryBanner_Panel", typeof(RectTransform), typeof(Image));
@@ -309,7 +547,7 @@ public class VendettaUIManager : MonoBehaviour
             rtVic.anchorMin = Vector2.zero;
             rtVic.anchorMax = Vector2.one;
             rtVic.sizeDelta = Vector2.zero;
-            victoryBannerPanel.GetComponent<Image>().color = new Color(0.05f, 0.04f, 0.02f, 0.9f);
+            victoryBannerPanel.GetComponent<Image>().color = new Color(0.05f, 0.04f, 0.02f, 0.92f);
 
             var vicTitleGO = new GameObject("VicTitle", typeof(RectTransform), typeof(Text));
             vicTitleGO.transform.SetParent(victoryBannerPanel.transform, false);
@@ -333,10 +571,10 @@ public class VendettaUIManager : MonoBehaviour
             rtVicSub.sizeDelta = new Vector2(800, 40);
             var txtSub = vicSubGO.GetComponent<Text>();
             txtSub.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            txtSub.fontSize = 20;
+            txtSub.fontSize = 18;
             txtSub.alignment = TextAnchor.MiddleCenter;
             txtSub.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
-            txtSub.text = "Boss Slain";
+            txtSub.text = "Vengeance Claimed — Boss Slain";
 
             // Restart Button
             var btnRestartGO = new GameObject("Btn_Restart", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -370,30 +608,117 @@ public class VendettaUIManager : MonoBehaviour
         }
     }
 
-    private void CreateSimpleRuneBtn(Transform parent, Vector2 pos, string label, UnityEngine.Events.UnityAction onClick)
+    private void CreateAscensionCard(
+        Transform parent,
+        Vector2 anchoredPos,
+        string title,
+        Color titleColor,
+        Sprite icon,
+        string quote,
+        string bulletPoints,
+        Color bulletColor,
+        string buttonLabel,
+        UnityEngine.Events.UnityAction onClick)
     {
-        var btnGO = new GameObject("Btn_" + label, typeof(RectTransform), typeof(Image), typeof(Button));
-        btnGO.transform.SetParent(parent, false);
-        var rtBtn = btnGO.GetComponent<RectTransform>();
-        rtBtn.anchoredPosition = pos;
-        rtBtn.sizeDelta = new Vector2(220, 60);
-        btnGO.GetComponent<Image>().color = new Color(0.18f, 0.22f, 0.30f, 0.95f);
+        var cardGO = new GameObject("Card_" + title.Replace(" ", "_"), typeof(RectTransform), typeof(Image), typeof(Button));
+        cardGO.transform.SetParent(parent, false);
+        var rtCard = cardGO.GetComponent<RectTransform>();
+        rtCard.anchoredPosition = anchoredPos;
+        rtCard.sizeDelta = new Vector2(320, 480);
 
-        var btn = btnGO.GetComponent<Button>();
+        var imgCard = cardGO.GetComponent<Image>();
+        if (cardFrameSprite != null)
+        {
+            imgCard.sprite = cardFrameSprite;
+            imgCard.color = Color.white;
+        }
+        else
+        {
+            imgCard.color = new Color(0.04f, 0.05f, 0.07f, 0.96f);
+        }
+
+        var btn = cardGO.GetComponent<Button>();
         btn.onClick.AddListener(onClick);
 
-        var txtGO = new GameObject("Text", typeof(RectTransform), typeof(Text));
-        txtGO.transform.SetParent(btnGO.transform, false);
-        var rtTxt = txtGO.GetComponent<RectTransform>();
-        rtTxt.anchorMin = Vector2.zero;
-        rtTxt.anchorMax = Vector2.one;
-        rtTxt.sizeDelta = Vector2.zero;
-        var txt = txtGO.GetComponent<Text>();
-        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.fontSize = 16;
-        txt.alignment = TextAnchor.MiddleCenter;
-        txt.fontStyle = FontStyle.Bold;
-        txt.color = Color.white;
-        txt.text = label;
+        // Card Title
+        var titleGO = new GameObject("CardTitle", typeof(RectTransform), typeof(Text));
+        titleGO.transform.SetParent(cardGO.transform, false);
+        var rtTitle = titleGO.GetComponent<RectTransform>();
+        rtTitle.anchoredPosition = new Vector2(0, 195);
+        rtTitle.sizeDelta = new Vector2(300, 36);
+        var txtTitle = titleGO.GetComponent<Text>();
+        txtTitle.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txtTitle.fontSize = 17;
+        txtTitle.alignment = TextAnchor.MiddleCenter;
+        txtTitle.fontStyle = FontStyle.Bold;
+        txtTitle.color = titleColor;
+        txtTitle.text = title;
+
+        // Card Icon
+        if (icon != null)
+        {
+            var iconGO = new GameObject("CardIcon", typeof(RectTransform), typeof(Image));
+            iconGO.transform.SetParent(cardGO.transform, false);
+            var rtIcon = iconGO.GetComponent<RectTransform>();
+            rtIcon.anchoredPosition = new Vector2(0, 95);
+            rtIcon.sizeDelta = new Vector2(130, 130);
+            var imgIcon = iconGO.GetComponent<Image>();
+            imgIcon.sprite = icon;
+            imgIcon.preserveAspect = true;
+        }
+
+        // Flavor Quote
+        var quoteGO = new GameObject("CardQuote", typeof(RectTransform), typeof(Text));
+        quoteGO.transform.SetParent(cardGO.transform, false);
+        var rtQuote = quoteGO.GetComponent<RectTransform>();
+        rtQuote.anchoredPosition = new Vector2(0, -5);
+        rtQuote.sizeDelta = new Vector2(280, 50);
+        var txtQuote = quoteGO.GetComponent<Text>();
+        txtQuote.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txtQuote.fontSize = 10;
+        txtQuote.alignment = TextAnchor.MiddleCenter;
+        txtQuote.fontStyle = FontStyle.Italic;
+        txtQuote.color = new Color(0.72f, 0.74f, 0.78f, 1f);
+        txtQuote.text = quote;
+
+        // Perk Bullet Points
+        var bulletGO = new GameObject("CardBullets", typeof(RectTransform), typeof(Text));
+        bulletGO.transform.SetParent(cardGO.transform, false);
+        var rtBullet = bulletGO.GetComponent<RectTransform>();
+        rtBullet.anchoredPosition = new Vector2(0, -95);
+        rtBullet.sizeDelta = new Vector2(280, 75);
+        var txtBullet = bulletGO.GetComponent<Text>();
+        txtBullet.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txtBullet.fontSize = 12;
+        txtBullet.alignment = TextAnchor.MiddleCenter;
+        txtBullet.lineSpacing = 1.25f;
+        txtBullet.fontStyle = FontStyle.Bold;
+        txtBullet.color = bulletColor;
+        txtBullet.text = bulletPoints;
+
+        // Embody Button (Bottom)
+        var btnGO = new GameObject("Btn_Embody", typeof(RectTransform), typeof(Image), typeof(Button));
+        btnGO.transform.SetParent(cardGO.transform, false);
+        var rtBtn = btnGO.GetComponent<RectTransform>();
+        rtBtn.anchoredPosition = new Vector2(0, -195);
+        rtBtn.sizeDelta = new Vector2(240, 40);
+        btnGO.GetComponent<Image>().color = new Color(0.12f, 0.14f, 0.18f, 0.95f);
+
+        var innerBtn = btnGO.GetComponent<Button>();
+        innerBtn.onClick.AddListener(onClick);
+
+        var btnTxtGO = new GameObject("BtnText", typeof(RectTransform), typeof(Text));
+        btnTxtGO.transform.SetParent(btnGO.transform, false);
+        var rtBtnTxt = btnTxtGO.GetComponent<RectTransform>();
+        rtBtnTxt.anchorMin = Vector2.zero;
+        rtBtnTxt.anchorMax = Vector2.one;
+        rtBtnTxt.sizeDelta = Vector2.zero;
+        var txtBtn = btnTxtGO.GetComponent<Text>();
+        txtBtn.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txtBtn.fontSize = 12;
+        txtBtn.alignment = TextAnchor.MiddleCenter;
+        txtBtn.fontStyle = FontStyle.Bold;
+        txtBtn.color = new Color(0.89f, 0.75f, 0.40f, 1f);
+        txtBtn.text = buttonLabel;
     }
 }

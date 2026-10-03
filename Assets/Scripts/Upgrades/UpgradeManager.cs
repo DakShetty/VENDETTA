@@ -3,16 +3,16 @@
 public class UpgradeManager : MonoBehaviour
 {
     public int requiredLight = 5;
-    private int currentLight = 0;
+    public int currentLight = 0;
 
     public GameObject upgradeCanvas;
 
     public void AddLight(int amount)
     {
         currentLight += amount;
-        Debug.Log("Upgrade Progress: " + currentLight + " / " + requiredLight);
+        Debug.Log("[UpgradeManager] Souls Harvested: " + currentLight + " / " + requiredLight);
 
-        // Strictly trigger upgrade ONLY when all 5 light charges are absorbed (never at 4)
+        // Strictly trigger ONLY when 5 souls are harvested (never at 4)
         if (currentLight >= requiredLight)
         {
             StartUpgrade();
@@ -21,20 +21,24 @@ public class UpgradeManager : MonoBehaviour
 
     public void StartUpgrade()
     {
-        Debug.Log("5 RUNES COLLECTED - RUNE UPGRADE AVAILABLE!");
+        Debug.Log("ALL 5 SOULS HARVESTED - ASCENSION READY!");
 
         if (GameManager.Instance != null)
         {
             GameManager.Instance.currentState = GameManager.GameState.Upgrade;
         }
 
-        if (upgradeCanvas != null)
+        // Open our Ascension Modal
+        if (VendettaUIManager.Instance != null)
+        {
+            VendettaUIManager.Instance.OpenAscensionModal();
+        }
+        else if (upgradeCanvas != null)
         {
             upgradeCanvas.SetActive(true);
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
-
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
 
         currentLight = 0;
     }
@@ -45,8 +49,8 @@ public class UpgradeManager : MonoBehaviour
 
         if (player != null)
         {
-            player.speed += 1.5f;
-            Debug.Log("Speed Rune Selected! New Speed: " + player.speed);
+            player.speed += 1.75f;
+            Debug.Log("Rune of Swiftness Embodied! Speed: " + player.speed);
         }
 
         VendettaAudioManager.Instance?.PlayPickupChime();
@@ -60,7 +64,7 @@ public class UpgradeManager : MonoBehaviour
         if (combat != null)
         {
             combat.attackDamage += 10f;
-            Debug.Log("Damage Rune Selected! New Attack Damage: " + combat.attackDamage);
+            Debug.Log("Rune of Fury Embodied! Attack Damage: " + combat.attackDamage);
         }
 
         VendettaAudioManager.Instance?.PlayPickupChime();
