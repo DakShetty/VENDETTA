@@ -20,6 +20,7 @@ public class VendettaUIManager : MonoBehaviour
 
     [Header("Ascension Rune Modal (Custom Designed)")]
     public GameObject ascensionModalPanel;
+    public Sprite heartEmblemSprite;
     public Sprite cardFrameSprite;
     public Sprite speedRuneSprite;
     public Sprite damageRuneSprite;
@@ -244,6 +245,7 @@ public class VendettaUIManager : MonoBehaviour
 
     private void LoadRuneSprites()
     {
+        if (heartEmblemSprite == null) heartEmblemSprite = LoadSpriteDirect("UI/T_HUD_Heart_Emblem.png");
         if (cardFrameSprite == null) cardFrameSprite = LoadSpriteDirect("UI/T_Card_Frame_HD.png");
         if (speedRuneSprite == null) speedRuneSprite = LoadSpriteDirect("UI/T_Rune_Speed_HD.png");
         if (damageRuneSprite == null) damageRuneSprite = LoadSpriteDirect("UI/T_Rune_Damage_HD.png");
@@ -296,82 +298,102 @@ public class VendettaUIManager : MonoBehaviour
             damageFlashOverlay.raycastTarget = false;
         }
 
-        // Top-Left: Vitality (Health) Bar
+        // Top-Left: Vitality (Health) & Stamina HUD (with Diamond Heart Emblem)
         if (vitalityFill == null)
         {
-            // Vitality label
+            // 1. Diamond Heart Emblem Icon
+            var emblemGO = new GameObject("HUD_Heart_Emblem", typeof(RectTransform), typeof(Image));
+            emblemGO.transform.SetParent(hudCanvas.transform, false);
+            var rtEmblem = emblemGO.GetComponent<RectTransform>();
+            rtEmblem.anchorMin = new Vector2(0, 1);
+            rtEmblem.anchorMax = new Vector2(0, 1);
+            rtEmblem.pivot = new Vector2(0, 1);
+            rtEmblem.anchoredPosition = new Vector2(18, -16);
+            rtEmblem.sizeDelta = new Vector2(62, 64);
+            var imgEmblem = emblemGO.GetComponent<Image>();
+            if (heartEmblemSprite != null)
+            {
+                imgEmblem.sprite = heartEmblemSprite;
+                imgEmblem.preserveAspect = true;
+            }
+            else
+            {
+                imgEmblem.color = new Color(0.85f, 0.15f, 0.18f, 1f);
+            }
+
+            // 2. Vitality Text Label
             var lblGO = new GameObject("Label_Vitality", typeof(RectTransform), typeof(Text));
             lblGO.transform.SetParent(hudCanvas.transform, false);
             var rtLbl = lblGO.GetComponent<RectTransform>();
             rtLbl.anchorMin = new Vector2(0, 1);
             rtLbl.anchorMax = new Vector2(0, 1);
             rtLbl.pivot = new Vector2(0, 1);
-            rtLbl.anchoredPosition = new Vector2(25, -20);
+            rtLbl.anchoredPosition = new Vector2(86, -14);
             rtLbl.sizeDelta = new Vector2(120, 16);
             vitalityLabelText = lblGO.GetComponent<Text>();
             vitalityLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             vitalityLabelText.fontSize = 11;
             vitalityLabelText.fontStyle = FontStyle.Bold;
-            vitalityLabelText.color = new Color(0.9f, 0.9f, 0.9f, 1f);
+            vitalityLabelText.color = new Color(0.85f, 0.35f, 0.35f, 1f);
             vitalityLabelText.text = "VITALITY";
 
-            // Red Health Bar BG
+            // 3. Red Health Bar Frame & Fill
             var hpBgGO = new GameObject("Vitality_BG", typeof(RectTransform), typeof(Image));
             hpBgGO.transform.SetParent(hudCanvas.transform, false);
             var rtHpBg = hpBgGO.GetComponent<RectTransform>();
             rtHpBg.anchorMin = new Vector2(0, 1);
             rtHpBg.anchorMax = new Vector2(0, 1);
             rtHpBg.pivot = new Vector2(0, 1);
-            rtHpBg.anchoredPosition = new Vector2(25, -36);
-            rtHpBg.sizeDelta = new Vector2(240, 18);
-            hpBgGO.GetComponent<Image>().color = new Color(0.18f, 0.05f, 0.05f, 0.85f);
+            rtHpBg.anchoredPosition = new Vector2(84, -30);
+            rtHpBg.sizeDelta = new Vector2(280, 15);
+            hpBgGO.GetComponent<Image>().color = new Color(0.08f, 0.08f, 0.10f, 0.90f);
 
-            // Red Health Bar Fill
             var fillGO = new GameObject("Vitality_Fill", typeof(RectTransform), typeof(Image));
             fillGO.transform.SetParent(hpBgGO.transform, false);
             var rtFill = fillGO.GetComponent<RectTransform>();
             rtFill.anchorMin = Vector2.zero;
             rtFill.anchorMax = Vector2.one;
-            rtFill.sizeDelta = Vector2.zero;
+            rtFill.sizeDelta = new Vector2(-2, -2);
+            rtFill.anchoredPosition = Vector2.zero;
             vitalityFill = fillGO.GetComponent<Image>();
             vitalityFill.color = new Color(0.82f, 0.20f, 0.20f, 1.0f);
 
-            // Stamina label
-            var stLblGO = new GameObject("Label_Stamina", typeof(RectTransform), typeof(Text));
-            stLblGO.transform.SetParent(hudCanvas.transform, false);
-            var rtStLbl = stLblGO.GetComponent<RectTransform>();
-            rtStLbl.anchorMin = new Vector2(0, 1);
-            rtStLbl.anchorMax = new Vector2(0, 1);
-            rtStLbl.pivot = new Vector2(0, 1);
-            rtStLbl.anchoredPosition = new Vector2(25, -58);
-            rtStLbl.sizeDelta = new Vector2(120, 16);
-            staminaLabelText = stLblGO.GetComponent<Text>();
-            staminaLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            staminaLabelText.fontSize = 11;
-            staminaLabelText.fontStyle = FontStyle.Bold;
-            staminaLabelText.color = new Color(0.9f, 0.9f, 0.9f, 1f);
-            staminaLabelText.text = "STAMINA";
-
-            // Green Stamina Bar BG
+            // 4. Green Stamina Bar Frame & Fill
             var stBgGO = new GameObject("Stamina_BG", typeof(RectTransform), typeof(Image));
             stBgGO.transform.SetParent(hudCanvas.transform, false);
             var rtStBg = stBgGO.GetComponent<RectTransform>();
             rtStBg.anchorMin = new Vector2(0, 1);
             rtStBg.anchorMax = new Vector2(0, 1);
             rtStBg.pivot = new Vector2(0, 1);
-            rtStBg.anchoredPosition = new Vector2(25, -74);
-            rtStBg.sizeDelta = new Vector2(240, 18);
-            stBgGO.GetComponent<Image>().color = new Color(0.05f, 0.16f, 0.08f, 0.85f);
+            rtStBg.anchoredPosition = new Vector2(84, -48);
+            rtStBg.sizeDelta = new Vector2(220, 13);
+            stBgGO.GetComponent<Image>().color = new Color(0.06f, 0.09f, 0.07f, 0.90f);
 
-            // Green Stamina Bar Fill
             var stFillGO = new GameObject("Stamina_Fill", typeof(RectTransform), typeof(Image));
             stFillGO.transform.SetParent(stBgGO.transform, false);
             var rtStFill = stFillGO.GetComponent<RectTransform>();
             rtStFill.anchorMin = Vector2.zero;
             rtStFill.anchorMax = Vector2.one;
-            rtStFill.sizeDelta = Vector2.zero;
+            rtStFill.sizeDelta = new Vector2(-2, -2);
+            rtStFill.anchoredPosition = Vector2.zero;
             staminaFill = stFillGO.GetComponent<Image>();
             staminaFill.color = new Color(0.24f, 0.65f, 0.32f, 1.0f);
+
+            // 5. Stamina Text Label
+            var stLblGO = new GameObject("Label_Stamina", typeof(RectTransform), typeof(Text));
+            stLblGO.transform.SetParent(hudCanvas.transform, false);
+            var rtStLbl = stLblGO.GetComponent<RectTransform>();
+            rtStLbl.anchorMin = new Vector2(0, 1);
+            rtStLbl.anchorMax = new Vector2(0, 1);
+            rtStLbl.pivot = new Vector2(0, 1);
+            rtStLbl.anchoredPosition = new Vector2(86, -63);
+            rtStLbl.sizeDelta = new Vector2(120, 16);
+            staminaLabelText = stLblGO.GetComponent<Text>();
+            staminaLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            staminaLabelText.fontSize = 11;
+            staminaLabelText.fontStyle = FontStyle.Bold;
+            staminaLabelText.color = new Color(0.48f, 0.78f, 0.52f, 1f);
+            staminaLabelText.text = "STAMINA";
         }
 
         // Soul Counter Text
@@ -443,7 +465,7 @@ public class VendettaUIManager : MonoBehaviour
             rtModal.anchorMin = Vector2.zero;
             rtModal.anchorMax = Vector2.one;
             rtModal.sizeDelta = Vector2.zero;
-            ascensionModalPanel.GetComponent<Image>().color = new Color(0.015f, 0.015f, 0.022f, 0.96f);
+            ascensionModalPanel.GetComponent<Image>().color = new Color(0.015f, 0.015f, 0.022f, 0.85f);
 
             // Title: ❖ ASCENSION : EMBODY YOUR RUNE ❖
             var titleGO = new GameObject("AscensionTitle", typeof(RectTransform), typeof(Text));
@@ -482,7 +504,7 @@ public class VendettaUIManager : MonoBehaviour
                 titleColor: new Color(0.38f, 0.74f, 0.92f, 1f), // Cyan
                 icon: speedRuneSprite,
                 quote: "\"Gale-force fury awakens in your limbs. Strike like an untamed hurricane.\"",
-                bulletPoints: "✦  +35% Movement Speed\n✦  +25% Slash Velocity\n✦  Airborne Downward Slash",
+                bulletPoints: "✦  +35% Movement Speed",
                 bulletColor: new Color(0.42f, 0.80f, 0.95f, 1f),
                 buttonLabel: "⬥  EMBODY (PRESS 1)  ⬥",
                 onClick: SelectSwiftnessRune
@@ -496,7 +518,7 @@ public class VendettaUIManager : MonoBehaviour
                 titleColor: new Color(0.98f, 0.55f, 0.22f, 1f), // Orange
                 icon: damageRuneSprite,
                 quote: "\"Cleave through blackened armor. Unbridled flame ignites within the blade.\"",
-                bulletPoints: "✦  +40% Heavy Slash Damage\n✦  +50% Stagger Impact\n✦  Critical Finisher Strike",
+                bulletPoints: "✦  +40% Heavy Slash Damage",
                 bulletColor: new Color(0.98f, 0.60f, 0.35f, 1f),
                 buttonLabel: "⬥  EMBODY (PRESS 2)  ⬥",
                 onClick: SelectFuryRune
