@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 using System.IO;
@@ -9,6 +9,7 @@ public class VendettaUIManager : MonoBehaviour
 
     [Header("In-Game HUD")]
     public Canvas hudCanvas;
+    public Image heartEmblemImage;
     public Image vitalityFill;
     public Text vitalityLabelText;
     public Image staminaFill;
@@ -101,6 +102,15 @@ public class VendettaUIManager : MonoBehaviour
             soulCounterText.text = "LIGHT SOULS: " + souls + " / " + req;
         }
 
+        // Check if GameState is Upgrade, open modal automatically
+        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Upgrade)
+        {
+            if (ascensionModalPanel != null && !ascensionModalPanel.activeSelf)
+            {
+                OpenAscensionModal();
+            }
+        }
+
         // Update boss health bar if active
         if (bossBarContainer != null && bossBarContainer.activeSelf && bossHealth != null && bossHealth.maxHealth > 0)
         {
@@ -128,14 +138,6 @@ public class VendettaUIManager : MonoBehaviour
 
     public void OpenAscensionModal()
     {
-        // Enforce strictly requiring 5 souls harvested (never open at 4)
-        int currentSouls = playerLight != null ? playerLight.lightAmount : 5;
-        if (currentSouls < 5)
-        {
-            Debug.LogWarning("[VendettaUI] Cannot open Ascension Modal: Only " + currentSouls + " souls collected. 5 required!");
-            return;
-        }
-
         if (ascensionModalPanel != null)
         {
             ascensionModalPanel.SetActive(true);
@@ -280,7 +282,11 @@ public class VendettaUIManager : MonoBehaviour
             var cGO = new GameObject("Vendetta_HUD_Canvas");
             hudCanvas = cGO.AddComponent<Canvas>();
             hudCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            cGO.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            var scaler = cGO.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
             cGO.AddComponent<GraphicRaycaster>();
         }
 
@@ -298,7 +304,9 @@ public class VendettaUIManager : MonoBehaviour
             damageFlashOverlay.raycastTarget = false;
         }
 
-        // Top-Left: Vitality (Health) & Stamina HUD (with Diamond Heart Emblem)
+        // ==========================================
+        // TOP-LEFT: VITALITY & STAMINA HUD
+        // ==========================================
         if (vitalityFill == null)
         {
             // 1. Diamond Heart Emblem Icon
@@ -308,17 +316,17 @@ public class VendettaUIManager : MonoBehaviour
             rtEmblem.anchorMin = new Vector2(0, 1);
             rtEmblem.anchorMax = new Vector2(0, 1);
             rtEmblem.pivot = new Vector2(0, 1);
-            rtEmblem.anchoredPosition = new Vector2(18, -16);
+            rtEmblem.anchoredPosition = new Vector2(24, -20);
             rtEmblem.sizeDelta = new Vector2(62, 64);
-            var imgEmblem = emblemGO.GetComponent<Image>();
+            heartEmblemImage = emblemGO.GetComponent<Image>();
             if (heartEmblemSprite != null)
             {
-                imgEmblem.sprite = heartEmblemSprite;
-                imgEmblem.preserveAspect = true;
+                heartEmblemImage.sprite = heartEmblemSprite;
+                heartEmblemImage.preserveAspect = true;
             }
             else
             {
-                imgEmblem.color = new Color(0.85f, 0.15f, 0.18f, 1f);
+                heartEmblemImage.color = new Color(0.85f, 0.15f, 0.18f, 1f);
             }
 
             // 2. Vitality Text Label
@@ -328,13 +336,13 @@ public class VendettaUIManager : MonoBehaviour
             rtLbl.anchorMin = new Vector2(0, 1);
             rtLbl.anchorMax = new Vector2(0, 1);
             rtLbl.pivot = new Vector2(0, 1);
-            rtLbl.anchoredPosition = new Vector2(86, -14);
+            rtLbl.anchoredPosition = new Vector2(96, -16);
             rtLbl.sizeDelta = new Vector2(120, 16);
             vitalityLabelText = lblGO.GetComponent<Text>();
             vitalityLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            vitalityLabelText.fontSize = 11;
+            vitalityLabelText.fontSize = 12;
             vitalityLabelText.fontStyle = FontStyle.Bold;
-            vitalityLabelText.color = new Color(0.85f, 0.35f, 0.35f, 1f);
+            vitalityLabelText.color = new Color(0.88f, 0.32f, 0.32f, 1f);
             vitalityLabelText.text = "VITALITY";
 
             // 3. Red Health Bar Frame & Fill
@@ -344,8 +352,8 @@ public class VendettaUIManager : MonoBehaviour
             rtHpBg.anchorMin = new Vector2(0, 1);
             rtHpBg.anchorMax = new Vector2(0, 1);
             rtHpBg.pivot = new Vector2(0, 1);
-            rtHpBg.anchoredPosition = new Vector2(84, -30);
-            rtHpBg.sizeDelta = new Vector2(280, 15);
+            rtHpBg.anchoredPosition = new Vector2(94, -34);
+            rtHpBg.sizeDelta = new Vector2(280, 16);
             hpBgGO.GetComponent<Image>().color = new Color(0.08f, 0.08f, 0.10f, 0.90f);
 
             var fillGO = new GameObject("Vitality_Fill", typeof(RectTransform), typeof(Image));
@@ -365,8 +373,8 @@ public class VendettaUIManager : MonoBehaviour
             rtStBg.anchorMin = new Vector2(0, 1);
             rtStBg.anchorMax = new Vector2(0, 1);
             rtStBg.pivot = new Vector2(0, 1);
-            rtStBg.anchoredPosition = new Vector2(84, -48);
-            rtStBg.sizeDelta = new Vector2(220, 13);
+            rtStBg.anchoredPosition = new Vector2(94, -54);
+            rtStBg.sizeDelta = new Vector2(230, 14);
             stBgGO.GetComponent<Image>().color = new Color(0.06f, 0.09f, 0.07f, 0.90f);
 
             var stFillGO = new GameObject("Stamina_Fill", typeof(RectTransform), typeof(Image));
@@ -386,7 +394,7 @@ public class VendettaUIManager : MonoBehaviour
             rtStLbl.anchorMin = new Vector2(0, 1);
             rtStLbl.anchorMax = new Vector2(0, 1);
             rtStLbl.pivot = new Vector2(0, 1);
-            rtStLbl.anchoredPosition = new Vector2(86, -63);
+            rtStLbl.anchoredPosition = new Vector2(96, -72);
             rtStLbl.sizeDelta = new Vector2(120, 16);
             staminaLabelText = stLblGO.GetComponent<Text>();
             staminaLabelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -405,7 +413,7 @@ public class VendettaUIManager : MonoBehaviour
             rtSoul.anchorMin = new Vector2(0, 1);
             rtSoul.anchorMax = new Vector2(0, 1);
             rtSoul.pivot = new Vector2(0, 1);
-            rtSoul.anchoredPosition = new Vector2(25, -102);
+            rtSoul.anchoredPosition = new Vector2(25, -104);
             rtSoul.sizeDelta = new Vector2(260, 24);
             soulCounterText = soulGO.GetComponent<Text>();
             soulCounterText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -415,7 +423,9 @@ public class VendettaUIManager : MonoBehaviour
             soulCounterText.text = "LIGHT SOULS: 0 / 5";
         }
 
-        // Boss Health Bar
+        // ==========================================
+        // TOP-CENTER: BOSS HEALTH BAR (Dead Center, No Overlap)
+        // ==========================================
         if (bossBarContainer == null)
         {
             bossBarContainer = new GameObject("BossBar_Container", typeof(RectTransform), typeof(Image));
@@ -424,9 +434,9 @@ public class VendettaUIManager : MonoBehaviour
             rtBossBg.anchorMin = new Vector2(0.5f, 1f);
             rtBossBg.anchorMax = new Vector2(0.5f, 1f);
             rtBossBg.pivot = new Vector2(0.5f, 1f);
-            rtBossBg.anchoredPosition = new Vector2(0, -25);
-            rtBossBg.sizeDelta = new Vector2(500, 24);
-            bossBarContainer.GetComponent<Image>().color = new Color(0.08f, 0.05f, 0.05f, 0.88f);
+            rtBossBg.anchoredPosition = new Vector2(0, -30);
+            rtBossBg.sizeDelta = new Vector2(600, 26);
+            bossBarContainer.GetComponent<Image>().color = new Color(0.08f, 0.05f, 0.05f, 0.90f);
 
             var fillBossGO = new GameObject("BossFill", typeof(RectTransform), typeof(Image));
             fillBossGO.transform.SetParent(bossBarContainer.transform, false);
@@ -446,7 +456,7 @@ public class VendettaUIManager : MonoBehaviour
             rtBossLabel.sizeDelta = Vector2.zero;
             var txtBoss = bossLblGO.GetComponent<Text>();
             txtBoss.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            txtBoss.fontSize = 12;
+            txtBoss.fontSize = 13;
             txtBoss.alignment = TextAnchor.MiddleCenter;
             txtBoss.fontStyle = FontStyle.Bold;
             txtBoss.color = new Color(1f, 0.85f, 0.5f, 1f);
@@ -455,7 +465,7 @@ public class VendettaUIManager : MonoBehaviour
         }
 
         // ==========================================
-        // ASCENSION : EMBODY YOUR RUNE MODAL
+        // ASCENSION : EMBODY YOUR RUNE MODAL (16:9 Scaled)
         // ==========================================
         if (ascensionModalPanel == null)
         {
@@ -465,15 +475,25 @@ public class VendettaUIManager : MonoBehaviour
             rtModal.anchorMin = Vector2.zero;
             rtModal.anchorMax = Vector2.one;
             rtModal.sizeDelta = Vector2.zero;
-            ascensionModalPanel.GetComponent<Image>().color = new Color(0.015f, 0.015f, 0.022f, 0.85f);
+            // Clean semi-transparent dark vignette (arena visible behind it)
+            ascensionModalPanel.GetComponent<Image>().color = new Color(0.015f, 0.015f, 0.022f, 0.88f);
+
+            // Container for centered modal content
+            var centerGO = new GameObject("Modal_Center_Container", typeof(RectTransform));
+            centerGO.transform.SetParent(ascensionModalPanel.transform, false);
+            var rtCenter = centerGO.GetComponent<RectTransform>();
+            rtCenter.anchorMin = new Vector2(0.5f, 0.5f);
+            rtCenter.anchorMax = new Vector2(0.5f, 0.5f);
+            rtCenter.pivot = new Vector2(0.5f, 0.5f);
+            rtCenter.anchoredPosition = Vector2.zero;
+            rtCenter.sizeDelta = new Vector2(1000, 800);
 
             // Title: ❖ ASCENSION : EMBODY YOUR RUNE ❖
             var titleGO = new GameObject("AscensionTitle", typeof(RectTransform), typeof(Text));
-            titleGO.transform.SetParent(ascensionModalPanel.transform, false);
+            titleGO.transform.SetParent(centerGO.transform, false);
             var rtTitle = titleGO.GetComponent<RectTransform>();
-            rtTitle.anchorMin = new Vector2(0.5f, 0.90f);
-            rtTitle.anchorMax = new Vector2(0.5f, 0.90f);
-            rtTitle.sizeDelta = new Vector2(900, 50);
+            rtTitle.anchoredPosition = new Vector2(0, 320);
+            rtTitle.sizeDelta = new Vector2(900, 45);
             var txtTitle = titleGO.GetComponent<Text>();
             txtTitle.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txtTitle.fontSize = 24;
@@ -484,11 +504,10 @@ public class VendettaUIManager : MonoBehaviour
 
             // Subtitle
             var subGO = new GameObject("AscensionSubtitle", typeof(RectTransform), typeof(Text));
-            subGO.transform.SetParent(ascensionModalPanel.transform, false);
+            subGO.transform.SetParent(centerGO.transform, false);
             var rtSub = subGO.GetComponent<RectTransform>();
-            rtSub.anchorMin = new Vector2(0.5f, 0.84f);
-            rtSub.anchorMax = new Vector2(0.5f, 0.84f);
-            rtSub.sizeDelta = new Vector2(900, 30);
+            rtSub.anchoredPosition = new Vector2(0, 280);
+            rtSub.sizeDelta = new Vector2(900, 26);
             var txtSub = subGO.GetComponent<Text>();
             txtSub.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txtSub.fontSize = 12;
@@ -498,8 +517,8 @@ public class VendettaUIManager : MonoBehaviour
 
             // Left Card: RUNE OF SWIFTNESS
             CreateAscensionCard(
-                parent: ascensionModalPanel.transform,
-                anchoredPos: new Vector2(-230, -25),
+                parent: centerGO.transform,
+                anchoredPos: new Vector2(-220, 25),
                 title: "RUNE OF SWIFTNESS",
                 titleColor: new Color(0.38f, 0.74f, 0.92f, 1f), // Cyan
                 icon: speedRuneSprite,
@@ -512,8 +531,8 @@ public class VendettaUIManager : MonoBehaviour
 
             // Right Card: RUNE OF FURY
             CreateAscensionCard(
-                parent: ascensionModalPanel.transform,
-                anchoredPos: new Vector2(230, -25),
+                parent: centerGO.transform,
+                anchoredPos: new Vector2(220, 25),
                 title: "RUNE OF FURY",
                 titleColor: new Color(0.98f, 0.55f, 0.22f, 1f), // Orange
                 icon: damageRuneSprite,
@@ -526,10 +545,9 @@ public class VendettaUIManager : MonoBehaviour
 
             // 5 Soul Slots Indicator at Bottom
             var soulSlotsGO = new GameObject("SoulSlots_Container", typeof(RectTransform));
-            soulSlotsGO.transform.SetParent(ascensionModalPanel.transform, false);
+            soulSlotsGO.transform.SetParent(centerGO.transform, false);
             var rtSlots = soulSlotsGO.GetComponent<RectTransform>();
-            rtSlots.anchorMin = new Vector2(0.5f, 0.11f);
-            rtSlots.anchorMax = new Vector2(0.5f, 0.11f);
+            rtSlots.anchoredPosition = new Vector2(0, -245);
             rtSlots.sizeDelta = new Vector2(240, 36);
 
             for (int i = 0; i < 5; i++)
@@ -540,16 +558,15 @@ public class VendettaUIManager : MonoBehaviour
                 rtS.anchoredPosition = new Vector2((i - 2) * 44, 0);
                 rtS.sizeDelta = new Vector2(34, 34);
                 var imgS = slot.GetComponent<Image>();
-                imgS.color = new Color(0.89f, 0.75f, 0.40f, 0.85f); // Glowing filled gold slot
+                imgS.color = new Color(0.89f, 0.75f, 0.40f, 0.85f);
             }
 
             // Bottom Prompt Text
             var promptGO = new GameObject("PromptText", typeof(RectTransform), typeof(Text));
-            promptGO.transform.SetParent(ascensionModalPanel.transform, false);
+            promptGO.transform.SetParent(centerGO.transform, false);
             var rtPrompt = promptGO.GetComponent<RectTransform>();
-            rtPrompt.anchorMin = new Vector2(0.5f, 0.05f);
-            rtPrompt.anchorMax = new Vector2(0.5f, 0.05f);
-            rtPrompt.sizeDelta = new Vector2(800, 26);
+            rtPrompt.anchoredPosition = new Vector2(0, -290);
+            rtPrompt.sizeDelta = new Vector2(800, 24);
             var txtPrompt = promptGO.GetComponent<Text>();
             txtPrompt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             txtPrompt.fontSize = 11;
@@ -646,7 +663,7 @@ public class VendettaUIManager : MonoBehaviour
         cardGO.transform.SetParent(parent, false);
         var rtCard = cardGO.GetComponent<RectTransform>();
         rtCard.anchoredPosition = anchoredPos;
-        rtCard.sizeDelta = new Vector2(320, 480);
+        rtCard.sizeDelta = new Vector2(320, 460);
 
         var imgCard = cardGO.GetComponent<Image>();
         if (cardFrameSprite != null)
@@ -666,7 +683,7 @@ public class VendettaUIManager : MonoBehaviour
         var titleGO = new GameObject("CardTitle", typeof(RectTransform), typeof(Text));
         titleGO.transform.SetParent(cardGO.transform, false);
         var rtTitle = titleGO.GetComponent<RectTransform>();
-        rtTitle.anchoredPosition = new Vector2(0, 195);
+        rtTitle.anchoredPosition = new Vector2(0, 185);
         rtTitle.sizeDelta = new Vector2(300, 36);
         var txtTitle = titleGO.GetComponent<Text>();
         txtTitle.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -682,8 +699,8 @@ public class VendettaUIManager : MonoBehaviour
             var iconGO = new GameObject("CardIcon", typeof(RectTransform), typeof(Image));
             iconGO.transform.SetParent(cardGO.transform, false);
             var rtIcon = iconGO.GetComponent<RectTransform>();
-            rtIcon.anchoredPosition = new Vector2(0, 95);
-            rtIcon.sizeDelta = new Vector2(130, 130);
+            rtIcon.anchoredPosition = new Vector2(0, 90);
+            rtIcon.sizeDelta = new Vector2(120, 120);
             var imgIcon = iconGO.GetComponent<Image>();
             imgIcon.sprite = icon;
             imgIcon.preserveAspect = true;
@@ -693,7 +710,7 @@ public class VendettaUIManager : MonoBehaviour
         var quoteGO = new GameObject("CardQuote", typeof(RectTransform), typeof(Text));
         quoteGO.transform.SetParent(cardGO.transform, false);
         var rtQuote = quoteGO.GetComponent<RectTransform>();
-        rtQuote.anchoredPosition = new Vector2(0, -5);
+        rtQuote.anchoredPosition = new Vector2(0, -10);
         rtQuote.sizeDelta = new Vector2(280, 50);
         var txtQuote = quoteGO.GetComponent<Text>();
         txtQuote.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -703,17 +720,16 @@ public class VendettaUIManager : MonoBehaviour
         txtQuote.color = new Color(0.72f, 0.74f, 0.78f, 1f);
         txtQuote.text = quote;
 
-        // Perk Bullet Points
+        // Perk Bullet Points (Single focused perk)
         var bulletGO = new GameObject("CardBullets", typeof(RectTransform), typeof(Text));
         bulletGO.transform.SetParent(cardGO.transform, false);
         var rtBullet = bulletGO.GetComponent<RectTransform>();
-        rtBullet.anchoredPosition = new Vector2(0, -95);
-        rtBullet.sizeDelta = new Vector2(280, 75);
+        rtBullet.anchoredPosition = new Vector2(0, -90);
+        rtBullet.sizeDelta = new Vector2(280, 50);
         var txtBullet = bulletGO.GetComponent<Text>();
         txtBullet.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txtBullet.fontSize = 12;
+        txtBullet.fontSize = 14;
         txtBullet.alignment = TextAnchor.MiddleCenter;
-        txtBullet.lineSpacing = 1.25f;
         txtBullet.fontStyle = FontStyle.Bold;
         txtBullet.color = bulletColor;
         txtBullet.text = bulletPoints;
@@ -722,8 +738,8 @@ public class VendettaUIManager : MonoBehaviour
         var btnGO = new GameObject("Btn_Embody", typeof(RectTransform), typeof(Image), typeof(Button));
         btnGO.transform.SetParent(cardGO.transform, false);
         var rtBtn = btnGO.GetComponent<RectTransform>();
-        rtBtn.anchoredPosition = new Vector2(0, -195);
-        rtBtn.sizeDelta = new Vector2(240, 40);
+        rtBtn.anchoredPosition = new Vector2(0, -185);
+        rtBtn.sizeDelta = new Vector2(240, 42);
         btnGO.GetComponent<Image>().color = new Color(0.12f, 0.14f, 0.18f, 0.95f);
 
         var innerBtn = btnGO.GetComponent<Button>();

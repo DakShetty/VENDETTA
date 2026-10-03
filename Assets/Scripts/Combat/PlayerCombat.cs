@@ -34,7 +34,7 @@ public class PlayerCombat : MonoBehaviour
 
         grounded = Physics.Raycast(transform.position, Vector3.down, 1.2f);
 
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) || Input.GetKeyDown(KeyCode.F))
         {
             if (!grounded)
             {
