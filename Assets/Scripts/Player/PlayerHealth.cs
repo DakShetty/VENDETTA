@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PlayerHealth : MonoBehaviour, IDamageable
 {
@@ -20,6 +20,8 @@ public class PlayerHealth : MonoBehaviour, IDamageable
             return;
 
         currentHealth -= damage;
+        VendettaAudioManager.Instance?.PlayPlayerHurt();
+        VendettaUIManager.Instance?.TriggerDamageFlash();
 
         Debug.Log("Player Health: " + currentHealth);
 

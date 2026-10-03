@@ -1,9 +1,9 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class BossHealth : MonoBehaviour, IDamageable
 {
     public float maxHealth = 500f;
-    private float currentHealth;
+    public float currentHealth;
 
     void Start()
     {
@@ -31,3 +31,4 @@ public class BossHealth : MonoBehaviour, IDamageable
         Destroy(gameObject);
     }
 }
+

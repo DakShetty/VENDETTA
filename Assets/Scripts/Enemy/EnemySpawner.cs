@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class EnemySpawner : MonoBehaviour
 {
@@ -48,6 +48,8 @@ public class EnemySpawner : MonoBehaviour
             boss.transform.rotation = bossSpawnPoint.rotation;
 
             boss.SetActive(true);
+            VendettaAudioManager.Instance?.PlayBossMusic();
+            VendettaUIManager.Instance?.ShowBossBar(true);
 
             Debug.Log("BOSS SPAWNED!");
         }
@@ -58,3 +60,4 @@ public class EnemySpawner : MonoBehaviour
         GameEvents.OnEnemyDefeated -= SpawnNextEnemy;
     }
 }
+

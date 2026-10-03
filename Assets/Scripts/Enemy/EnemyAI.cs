@@ -1,10 +1,10 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class EnemyAI : MonoBehaviour
 {
     public Transform player;
     public float speed = 2f;
-    public float stopDistance = 2f;
+    public float stopDistance = 1.5f;
 
     void Start()
     {
@@ -42,3 +42,4 @@ public class EnemyAI : MonoBehaviour
         }
     }
 }
+

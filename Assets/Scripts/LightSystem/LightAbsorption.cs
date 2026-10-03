@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class LightAbsorption : MonoBehaviour
 {
@@ -13,9 +13,11 @@ public class LightAbsorption : MonoBehaviour
             if (playerLight != null)
             {
                 playerLight.AbsorbLight(lightValue);
+                VendettaAudioManager.Instance?.PlayPickupChime();
             }
 
             Destroy(gameObject);
         }
     }
 }
+

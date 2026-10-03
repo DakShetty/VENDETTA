@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PlayerCombat : MonoBehaviour
 {
@@ -32,7 +32,7 @@ public class PlayerCombat : MonoBehaviour
             GameManager.Instance.IsGameOver())
             return;
 
-        grounded = Physics.Raycast(transform.position,Vector3.down,1.2f);
+        grounded = Physics.Raycast(transform.position, Vector3.down, 1.2f);
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -74,8 +74,10 @@ public class PlayerCombat : MonoBehaviour
         if (progress >= 1f)
             EndAttack();
     }
+
     void FaceCameraDirection()
     {
+        if (Camera.main == null) return;
         Transform cam = Camera.main.transform;
 
         Vector3 direction = cam.forward;
@@ -86,9 +88,11 @@ public class PlayerCombat : MonoBehaviour
             transform.forward = direction.normalized;
         }
     }
+
     void StartAttack()
     {
         FaceCameraDirection();
+        VendettaAudioManager.Instance?.PlaySwordSwing();
 
         attacking = true;
         queuedAttack = false;
@@ -101,7 +105,7 @@ public class PlayerCombat : MonoBehaviour
 
         if (comboStep == 0)
         {
-            // Right → left slash
+            // Right -> left slash
             startPosition = new Vector3(0.7f, 0.2f, 1.0f);
             endPosition = new Vector3(-0.2f, 0.2f, 1.1f);
 
@@ -110,7 +114,7 @@ public class PlayerCombat : MonoBehaviour
         }
         else
         {
-            // Left → right slash
+            // Left -> right slash
             startPosition = new Vector3(-0.2f, 0.2f, 1.1f);
             endPosition = new Vector3(0.7f, 0.2f, 1.0f);
 
@@ -128,11 +132,15 @@ public class PlayerCombat : MonoBehaviour
         if (comboStep >= 2)
             comboStep = 0;
     }
+
     void StartDownwardAttack()
     {
         if (attacking)
             return;
+
         FaceCameraDirection();
+        VendettaAudioManager.Instance?.PlaySwordSwing();
+
         attacking = true;
         downwardAttack = true;
         queuedAttack = false;
@@ -153,6 +161,7 @@ public class PlayerCombat : MonoBehaviour
             sword.transform.localRotation = startRotation;
         }
     }
+
     void AttackHit()
     {
         Vector3 attackCenter =
@@ -172,6 +181,7 @@ public class PlayerCombat : MonoBehaviour
                 hit.transform.root != transform.root)
             {
                 target.TakeDamage(attackDamage);
+                VendettaAudioManager.Instance?.PlaySwordHit();
                 Debug.Log("Sword hit: " + hit.name);
             }
         }

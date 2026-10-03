@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class CameraFollow : MonoBehaviour
 {
@@ -20,6 +20,8 @@ public class CameraFollow : MonoBehaviour
 
     void LateUpdate()
     {
+        if (player == null) return;
+
         float mouseX = Input.GetAxis("Mouse X") *
                        mouseSensitivity * Time.deltaTime;
 
