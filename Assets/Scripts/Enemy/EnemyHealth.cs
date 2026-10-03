@@ -37,7 +37,7 @@ public class EnemyHealth : MonoBehaviour, IDamageable
 
         if (lightDropPrefab != null)
         {
-            Instantiate(lightDropPrefab, transform.position, Quaternion.identity);
+            Instantiate(lightDropPrefab, transform.position + Vector3.up * 0.6f, Quaternion.identity);
         }
 
         GameEvents.OnEnemyDefeated?.Invoke();
