@@ -111,6 +111,15 @@ public class VendettaUIManager : MonoBehaviour
             }
         }
 
+        // Automatically trigger Victory screen when boss is defeated
+        if (GameManager.Instance != null && GameManager.Instance.currentState == GameManager.GameState.Victory)
+        {
+            if (victoryBannerPanel != null && !victoryBannerPanel.activeSelf)
+            {
+                ShowVictoryScreen();
+            }
+        }
+
         // Update boss health bar if active
         if (bossBarContainer != null && bossBarContainer.activeSelf && bossHealth != null && bossHealth.maxHealth > 0)
         {
@@ -240,13 +249,17 @@ public class VendettaUIManager : MonoBehaviour
 
     public void ShowVictoryScreen()
     {
+        if (ascensionModalPanel != null) ascensionModalPanel.SetActive(false);
         if (victoryBannerPanel != null)
         {
+            victoryBannerPanel.transform.SetAsLastSibling();
             victoryBannerPanel.SetActive(true);
         }
         ShowBossBar(false);
+        Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        VendettaAudioManager.Instance?.PlayVictory();
     }
 
     public void ShowBossBar(bool show)
@@ -652,7 +665,7 @@ public class VendettaUIManager : MonoBehaviour
             txtSub.fontSize = 18;
             txtSub.alignment = TextAnchor.MiddleCenter;
             txtSub.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
-            txtSub.text = "Vengeance Claimed — Boss Slain";
+            txtSub.text = "Vengeance Claimed - Boss Slain";
 
             // Restart Button
             var btnRestartGO = new GameObject("Btn_Restart", typeof(RectTransform), typeof(Image), typeof(Button));
