@@ -20,8 +20,25 @@ public class PlayerMovement : MonoBehaviour
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        Vector3 move = transform.right * x + transform.forward * z;
-        controller.Move(move * speed * Time.deltaTime);
+        Transform cam = Camera.main.transform;
+
+        Vector3 forward = cam.forward;
+        Vector3 right = cam.right;
+
+        forward.y = 0;
+        right.y = 0;
+
+        forward.Normalize();
+        right.Normalize();
+
+        Vector3 move = forward * z + right * x;
+
+        if (z > 0.1f)
+        {
+            transform.forward = forward;
+        }
+
+        controller.Move(move.normalized * speed * Time.deltaTime);
 
         bool grounded = Physics.Raycast(
             transform.position,

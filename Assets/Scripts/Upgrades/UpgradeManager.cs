@@ -28,6 +28,9 @@ public class UpgradeManager : MonoBehaviour
             upgradeCanvas.SetActive(true);
         }
 
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         currentLight = 0;
     }
 
@@ -63,6 +66,9 @@ public class UpgradeManager : MonoBehaviour
         {
             upgradeCanvas.SetActive(false);
         }
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
 
         GameManager.Instance.currentState = GameManager.GameState.Playing;
     }

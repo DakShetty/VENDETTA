@@ -74,9 +74,22 @@ public class PlayerCombat : MonoBehaviour
         if (progress >= 1f)
             EndAttack();
     }
+    void FaceCameraDirection()
+    {
+        Transform cam = Camera.main.transform;
 
+        Vector3 direction = cam.forward;
+        direction.y = 0;
+
+        if (direction.sqrMagnitude > 0.01f)
+        {
+            transform.forward = direction.normalized;
+        }
+    }
     void StartAttack()
     {
+        FaceCameraDirection();
+
         attacking = true;
         queuedAttack = false;
         swingTimer = 0f;
@@ -119,7 +132,7 @@ public class PlayerCombat : MonoBehaviour
     {
         if (attacking)
             return;
-
+        FaceCameraDirection();
         attacking = true;
         downwardAttack = true;
         queuedAttack = false;
@@ -142,8 +155,11 @@ public class PlayerCombat : MonoBehaviour
     }
     void AttackHit()
     {
+        Vector3 attackCenter =
+            transform.position + transform.forward * 1.5f;
+
         Collider[] hits = Physics.OverlapSphere(
-            transform.position + transform.forward * 1.5f,
+            attackCenter,
             attackRange
         );
 
@@ -152,7 +168,8 @@ public class PlayerCombat : MonoBehaviour
             IDamageable target =
                 hit.GetComponentInParent<IDamageable>();
 
-            if (target != null && hit.transform.root != transform.root)
+            if (target != null &&
+                hit.transform.root != transform.root)
             {
                 target.TakeDamage(attackDamage);
                 Debug.Log("Sword hit: " + hit.name);
