@@ -32,7 +32,16 @@ public class EnemyAI : MonoBehaviour
             Vector3 direction = (player.position - transform.position).normalized;
             direction.y = 0;
 
-            transform.position += direction * speed * Time.deltaTime;
+            CharacterController controller = GetComponent<CharacterController>();
+
+            if (controller != null)
+            {
+                controller.Move(direction * speed * Time.deltaTime);
+            }
+            else
+            {
+                transform.position += direction * speed * Time.deltaTime;
+            }
 
             transform.LookAt(new Vector3(
                 player.position.x,
