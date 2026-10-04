@@ -20,11 +20,7 @@ public class PlayerCombat : MonoBehaviour
     private bool downwardAttack;
     private bool grounded;
 
-    void Start()
-    {
-        if (sword != null)
-            sword.SetActive(false);
-    }
+    
 
     void Update()
     {
@@ -95,6 +91,10 @@ public class PlayerCombat : MonoBehaviour
         VendettaAudioManager.Instance?.PlaySwordSwing();
 
         attacking = true;
+        Animator animator = GetComponentInChildren<Animator>();
+
+        if (animator != null)
+            animator.SetTrigger("Attack");
         queuedAttack = false;
         swingTimer = 0f;
 

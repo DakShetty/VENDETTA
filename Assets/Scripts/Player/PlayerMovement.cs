@@ -9,15 +9,16 @@ public class PlayerMovement : MonoBehaviour
 
     private CharacterController controller;
     private Vector3 velocity;
+    private Animator animator;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        animator = GetComponentInChildren<Animator>();
     }
 
     void Update()
     {
-        if (GameManager.Instance != null && (GameManager.Instance.IsGameOver() || GameManager.Instance.currentState == GameManager.GameState.Upgrade)) return;
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
@@ -34,12 +35,13 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 move = forward * z + right * x;
 
-        if (z > 0.1f)
+        if (move.sqrMagnitude > 0.01f)
         {
-            transform.forward = forward;
-        }
+            controller.Move(move.normalized * speed * Time.deltaTime);
 
-        controller.Move(move.normalized * speed * Time.deltaTime);
+            if (z > 0.1f)
+                transform.forward = forward;
+        }
 
         bool grounded = Physics.Raycast(
             transform.position,
@@ -48,18 +50,21 @@ public class PlayerMovement : MonoBehaviour
         );
 
         if (grounded && velocity.y < 0)
-        {
             velocity.y = -2f;
-        }
 
         if (Input.GetKeyDown(KeyCode.Space) && grounded)
-        {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-        }
 
         velocity.y += gravity * Time.deltaTime;
-
         controller.Move(velocity * Time.deltaTime);
+
+        if (animator != null)
+        {
+            animator.SetFloat("InputX", x);
+            animator.SetFloat("InputY", z);
+            animator.SetFloat("Blend", move.magnitude);
+            animator.SetBool("IsInAir", !grounded);
+        }
     }
 }
 
